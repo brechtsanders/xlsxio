@@ -94,6 +94,28 @@ DLL_EXPORT_XLSXIO const XLSXIOCHAR* xlsxioread_get_version_string ();
 /*! \brief read handle for .xlsx object */
 typedef struct xlsxio_read_struct* xlsxioreader;
 
+DLL_EXPORT_XLSXIO typedef enum {
+   cell_type_none,
+   cell_type_value,
+   cell_type_boolean,
+   cell_type_string,
+   cell_type_date
+} cell_type_enum;
+
+struct data_sheet_cell_data {
+  size_t row_num;
+  size_t col_num;
+  size_t cols;
+  char* data;
+  size_t datalen;
+  cell_type_enum cell_type;
+  char* number_fmt;
+};
+
+typedef struct data_sheet_cell_data* xlsxioread_cell;
+
+//typedef struct data_sheet_callback_data* xlsxioread_cell;
+
 /*! \brief open .xlsx file
  * \param  filename      path of .xlsx file to open
  * \return read handle for .xlsx object or NULL on error
@@ -253,6 +275,8 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_row (xlsxioreadersheet sheethandle);
  * \sa     xlsxioread_sheet_open()
  */
 DLL_EXPORT_XLSXIO XLSXIOCHAR* xlsxioread_sheet_next_cell (xlsxioreadersheet sheethandle);
+
+DLL_EXPORT_XLSXIO struct data_sheet_cell_data* xlsxioread_sheet_next_cell_struct (xlsxioreadersheet sheethandle);
 
 /*! \brief get next cell from worksheet as a string
  * \param  sheethandle   read handle for worksheet object

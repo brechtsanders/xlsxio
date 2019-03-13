@@ -7,6 +7,7 @@
 *.URL
 *.a
 *.so
+*.dylib
 obj/
 bin/
 doc/
@@ -18,3 +19,7 @@ example_xlsxio_write
 example_xlsxio_write_getversion
 xlsxio_csv2xlsx
 xlsxio_xlsx2csv
+lib/*.o
+src/*.o
+examples/*.o
+

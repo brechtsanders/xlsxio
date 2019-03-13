@@ -134,14 +134,20 @@ int main (int argc, char* argv[])
     }
     xlsxioread_sheetlist_close(sheetlist);
   }
+  XML_Char_printf(X("\n"));
 
   //read values from first sheet
-  XLSXIOCHAR* value;
+  xlsxioread_cell value;
+  const char *typeNames[] = { "none", "value", "boolean", "string", "date" };
+
   printf("Contents of first sheet:\n");
   xlsxioreadersheet sheet = xlsxioread_sheet_open(xlsxioread, NULL, XLSXIOREAD_SKIP_EMPTY_ROWS);
   while (xlsxioread_sheet_next_row(sheet)) {
-    while ((value = xlsxioread_sheet_next_cell(sheet)) != NULL) {
-      XML_Char_printf(X("%s\t"), value);
+    while ((value = xlsxioread_sheet_next_cell_struct(sheet)) != NULL) {
+      XML_Char_printf(X("%s"), value->data);
+      // print with row num, cell num and type
+      // XML_Char_printf("cell %zu %zu %s %s %s\n", value->row_num, value->col_num,
+      //  typeNames[value->cell_type], value->number_fmt, value->data);
       free(value);
     }
     printf("\n");

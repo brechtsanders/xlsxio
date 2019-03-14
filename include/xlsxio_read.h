@@ -93,6 +93,7 @@ DLL_EXPORT_XLSXIO const XLSXIOCHAR* xlsxioread_get_version_string ();
 
 /*! \brief read handle for .xlsx object */
 typedef struct xlsxio_read_struct* xlsxioreader;
+typedef struct xlsxio_read_struct xlsxio_read_struct;
 
 DLL_EXPORT_XLSXIO typedef enum {
    cell_type_none,
@@ -313,6 +314,8 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_cell_float (xlsxioreadersheet sheeth
  * \sa     xlsxioread_sheet_next_cell()
  */
 DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_cell_datetime (xlsxioreadersheet sheethandle, time_t* pvalue);
+
+void xlsxioread_debug_internals(xlsxioreader handle);
 
 #ifdef __cplusplus
 }

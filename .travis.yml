@@ -5,6 +5,8 @@ os:
   - linux
   - windows
 
+dist: xenial
+
 #compiler:
 #  - clang
 #  - gcc

@@ -5,9 +5,9 @@ os:
   - linux
   - windows
 
-compiler:
-  - clang
-  - gcc
+#compiler:
+#  - clang
+#  - gcc
 
 
 before_install:
@@ -20,7 +20,7 @@ before_script:
   - mkdir build
   - cd build
   - cmake .. -DMZ_BUILD_TEST=ON -DMZ_BUILD_UNIT_TEST=ON -DCMAKE_BUILD_TYPE=Release
-  - cmake --build . --config Release --target install
+  - sudo cmake --build . --config Release --target install
   - cd ../..
 
 

@@ -106,9 +106,7 @@ DLL_EXPORT_XLSXIO typedef enum {
 struct data_sheet_cell_data {
   size_t row_num;
   size_t col_num;
-  size_t cols;
   char* data;
-  size_t datalen;
   cell_type_enum cell_type;
   char* number_fmt;
 };

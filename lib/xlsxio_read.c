@@ -260,8 +260,9 @@ XML_Char* get_relationship_filename (const XML_Char* filename)
   if ((result = XML_Char_malloc(filenamelen + 12)) != NULL) {
     size_t i = filenamelen;
     while (i > 0) {
-      if (filename[i - 1] == '/')
+      if (filename[i - 1] == '/') {
         break;
+      }
       i--;
     }
     XML_Char_poscpy(result, 0, filename, i);
@@ -278,10 +279,10 @@ XML_Char* join_basepath_filename (const XML_Char* basepath, const XML_Char* file
   XML_Char* result = NULL;
   if (filename && *filename) {
     if (filename[0] == '/' && filename[1]) {
-      //file is absolute: remove leading slash
+      // file is absolute: remove leading slash
       result = XML_Char_dup(filename + 1);
     } else {
-      //file is relative: prepend base path
+      // file is relative: prepend base path
       size_t basepathlen = (basepath ? XML_Char_len(basepath) : 0);
       size_t filenamelen = XML_Char_len(filename);
       if ((result = XML_Char_malloc(basepathlen + filenamelen + 1)) != NULL) {
@@ -531,10 +532,10 @@ struct main_sheet_get_rels_callback_data {
 };
 
 struct date_struct {
-   int id;                    /* key */
-   int isDate;
-   XML_Char* fmt;
-   UT_hash_handle hh;         /* makes this structure hashable */
+  int id;                    /* key */
+  int isDate;
+  XML_Char* fmt;
+  UT_hash_handle hh;         /* makes this structure hashable */
 };
 
 // aka xlsxioreader
@@ -546,10 +547,10 @@ struct xlsxio_read_struct {
 };
 
 struct styles_callback_data {
-   XML_Parser xmlparser;
-   int lookForStyles;
-   int lookForDates;
-   struct xlsxio_read_struct* handle;
+  XML_Parser xmlparser;
+  int lookForStyles;
+  int lookForDates;
+  struct xlsxio_read_struct* handle;
 };
 
 typedef enum {
@@ -755,7 +756,6 @@ DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open_memory (void* data, uint64_t data
 DLL_EXPORT_XLSXIO void xlsxioread_close (xlsxioreader handle)
 {
   if (handle) {
-
     // if we call "free()" more then once then it will crash with "pointer being freed was not allocated"
     // so we can call xlsxioread_close multiple times
     int needFreeItself = handle->zip != NULL || handle->date_formats != NULL || handle->number_formats != NULL;
@@ -781,7 +781,8 @@ DLL_EXPORT_XLSXIO void xlsxioread_close (xlsxioreader handle)
     }
 
     if (needFreeItself) {
-      free(handle);
+      // if we have 2 pointers to same struct, this may cause seg fault
+      // free(handle);
     }
   }
 }
@@ -915,24 +916,24 @@ DLL_EXPORT_XLSXIO void xlsxioread_list_sheets (xlsxioreader handle, xlsxioread_l
 ////////////////////////////////////////////////////////////////////////
 
 int is_date_format(const XML_Char* ch) {
-   // 'Red' is used in Excel general formats, for its 'd' not to be interpreted as 'd' in day the string is removed
-   char* pRed;
-   if ((pRed = strstr(ch, "Red")) != NULL) {
-      pRed[0] = pRed[1] = pRed[2] = ' ';
-   }
+  // 'Red' is used in Excel general formats, for its 'd' not to be interpreted as 'd' in day the string is removed
+  char* pRed;
+  if ((pRed = strstr(ch, "Red")) != NULL) {
+    pRed[0] = pRed[1] = pRed[2] = ' ';
+  }
 
-   if (strstr(ch, "y"))     // year
-      return 1;
-   if (strstr(ch, "m"))     // month/minute
-      return 1;
-   if (strstr(ch, "d"))     // day
-      return 1;
-   if (strstr(ch, "h"))     // hour
-      return 1;
-   if (strstr(ch, "s"))     // second
-      return 1;
+  if (strstr(ch, "y"))  // year
+    return 1;
+  if (strstr(ch, "m"))  // month/minute
+    return 1;
+  if (strstr(ch, "d"))  // day
+    return 1;
+  if (strstr(ch, "h"))  // hour
+    return 1;
+  if (strstr(ch, "s"))  // second
+    return 1;
 
-   return 0;
+  return 0;
 }
 
 void format_types_start_callback(void* callbackdata, const XML_Char* name, const XML_Char** atts) {
@@ -974,13 +975,13 @@ void format_types_start_callback(void* callbackdata, const XML_Char* name, const
 }
 
 void format_types_end_callback(void* callbackdata, const XML_Char* name) {
-   if (strcmp(name, "cellXfs") == 0) {
-      struct styles_callback_data* pdata = (struct styles_callback_data*)callbackdata;
-      pdata->lookForStyles = 0;
-   } else if (strcmp(name, "numFmts") == 0) {
-      struct styles_callback_data* pdata = (struct styles_callback_data*)callbackdata;
-      pdata->lookForDates = 0;
-   }
+  if (strcmp(name, "cellXfs") == 0) {
+    struct styles_callback_data* pdata = (struct styles_callback_data*)callbackdata;
+    pdata->lookForStyles = 0;
+  } else if (strcmp(name, "numFmts") == 0) {
+    struct styles_callback_data* pdata = (struct styles_callback_data*)callbackdata;
+    pdata->lookForDates = 0;
+  }
 }
 
 // determine relationship id for specific sheet name
@@ -1044,8 +1045,9 @@ void main_sheet_get_sheetfile_callback (ZIPFILETYPE* zip, const XML_Char* filena
     //determine base name (including trailing slash)
     size_t i = XML_Char_len(filename);
     while (i > 0) {
-      if (filename[i - 1] == '/')
+      if (filename[i - 1] == '/') {
         break;
+      }
       i--;
     }
     if (data->basepath)
@@ -1663,7 +1665,7 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_row (xlsxioreadersheet sheethandle)
     return 0;
   }
   sheethandle->lastcolnr = 0;
-  //when padding rows don't retrieve new data
+  // when padding rows don't retrieve new data
   if (sheethandle->paddingrow) {
     if (sheethandle->paddingrow < sheethandle->processcallbackdata.rownr) {
       return 3;
@@ -1673,7 +1675,7 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_row (xlsxioreadersheet sheethandle)
     }
   }
   sheethandle->paddingcol = 0;
-  //go to beginning of next row
+  // go to beginning of next row
   while ((status = expat_process_zip_file_resume(sheethandle->zipfile, sheethandle->processcallbackdata.xmlparser)) == XML_STATUS_SUSPENDED && sheethandle->processcallbackdata.colnr != 0) {
   }
   return (status == XML_STATUS_SUSPENDED ? 1 : 0);
@@ -1689,18 +1691,16 @@ DLL_EXPORT_XLSXIO struct data_sheet_cell_data* xlsxioread_sheet_next_cell_struct
   struct data_sheet_cell_data *res;
   res = (struct data_sheet_cell_data *) malloc(sizeof(struct data_sheet_cell_data));
   res->row_num = sheethandle->processcallbackdata.rownr;
-  res->col_num = sheethandle->lastcolnr; //sheethandle->processcallbackdata.colnr;
-  res->cols = sheethandle->processcallbackdata.cols;
-  res->datalen = 0;
+  res->col_num = sheethandle->lastcolnr;
   res->number_fmt = sheethandle->processcallbackdata.number_fmt;
   res->cell_type = sheethandle->processcallbackdata.cell_type;
 
-  //append empty column if needed
+  // append empty column if needed
   if (sheethandle->paddingcol) {
     if (sheethandle->paddingcol > sheethandle->processcallbackdata.cols) {
       //last empty column added, finish row
       sheethandle->paddingcol = 0;
-      //when padding rows prepare for the next one
+      // when padding rows prepare for the next one
       if (sheethandle->paddingrow) {
         sheethandle->lastrownr++;
         sheethandle->paddingrow++;
@@ -1710,13 +1710,8 @@ DLL_EXPORT_XLSXIO struct data_sheet_cell_data* xlsxioread_sheet_next_cell_struct
       }
       return NULL;
     } else {
-      //add another empty column
+      // add another empty column
       sheethandle->paddingcol++;
-      //return XML_Char_dup(X(""));
-
-      //sheethandle->processcallbackdata.celldata = XML_Char_dup(X(""));
-      //return &sheethandle->processcallbackdata;
-
       res->data = XML_Char_dup(X(""));
       return res;
     }
@@ -1730,7 +1725,7 @@ DLL_EXPORT_XLSXIO struct data_sheet_cell_data* xlsxioread_sheet_next_cell_struct
     }
   }
 
-  //insert empty rows if needed
+  // insert empty rows if needed
   if (!(sheethandle->processcallbackdata.flags & XLSXIOREAD_SKIP_EMPTY_ROWS) && sheethandle->lastrownr + 1 < sheethandle->processcallbackdata.rownr) {
     sheethandle->paddingrow = sheethandle->lastrownr + 1;
     sheethandle->paddingcol = sheethandle->processcallbackdata.colnr * 0 + 1;
@@ -1742,9 +1737,6 @@ DLL_EXPORT_XLSXIO struct data_sheet_cell_data* xlsxioread_sheet_next_cell_struct
   if (!(sheethandle->processcallbackdata.flags & XLSXIOREAD_SKIP_EMPTY_CELLS)) {
     if (sheethandle->lastcolnr + 1 < sheethandle->processcallbackdata.colnr) {
       sheethandle->lastcolnr++;
-      //return XML_Char_dup(X(""));
-      //sheethandle->processcallbackdata.celldata = XML_Char_dup(X(""));
-      //return &sheethandle->processcallbackdata;
 
       res->data = XML_Char_dup(X(""));
       return res;
@@ -1770,7 +1762,6 @@ DLL_EXPORT_XLSXIO struct data_sheet_cell_data* xlsxioread_sheet_next_cell_struct
   sheethandle->lastcolnr = sheethandle->processcallbackdata.colnr;
 
   return res->data ? res : NULL;
-  //return result;
 }
 
 DLL_EXPORT_XLSXIO XLSXIOCHAR* xlsxioread_sheet_next_cell (xlsxioreadersheet sheethandle) {

@@ -1,0 +1,29 @@
+language: c
+
+os:
+  - osx
+  - linux
+  - windows
+
+compiler:
+  - clang
+  - gcc
+
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install libbsd-dev libssl-dev; fi
+
+before_script:
+  - wget https://github.com/nmoinvaz/minizip/archive/2.8.4.zip
+  - unzip 2.8.4.zip
+  - cd minizip-2.8.4
+  - mkdir build
+  - cd build
+  - cmake .. -DMZ_BUILD_TEST=ON -DMZ_BUILD_UNIT_TEST=ON -DCMAKE_BUILD_TYPE=Release
+  - cmake --build . --config Release --target install
+  - cd ../..
+
+
+script:
+  - make
+  - make examples

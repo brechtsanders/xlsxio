@@ -11,8 +11,7 @@ os:
 
 addons:
   apt:
-    update: true
-    packages: ["minizip"]
+    packages: ["libminizip-dev"]
   homebrew:
     packages: ["minizip"]
 
@@ -44,6 +43,7 @@ addons:
 
 
 script:
+  - which choco && choco install minizip
   - cmake .
   - cmake --build .
   - ./example_xlsxio_write

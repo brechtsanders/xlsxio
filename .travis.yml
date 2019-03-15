@@ -5,11 +5,8 @@ os:
   - linux
   - windows
 
+# linux distro
 dist: xenial
-
-#compiler:
-#  - clang
-#  - gcc
 
 addons:
   apt:
@@ -17,21 +14,9 @@ addons:
   homebrew:
     packages: ["minizip"]
 
-#matrix:
-#  include:
-#    - os: linux
-#      addons:
-#        apt:
-#          update: true
-#          packages: ["minizip"]
-#    - os: osx
-#      addons:
-#        homebrew:
-#          packages: ["minizip"]
-#
-
-#before_install:
-#  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install libbsd-dev libssl-dev; fi
+matrix:
+  allow_failures:
+    - os: windows
 
 #before_script:
 #  - wget https://github.com/nmoinvaz/minizip/archive/2.8.4.zip
@@ -45,7 +30,6 @@ addons:
 
 
 script:
-  - which choco && choco install minizip
   - cmake .
   - cmake --build .
   - ./example_xlsxio_write

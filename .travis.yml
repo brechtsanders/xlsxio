@@ -9,17 +9,25 @@ os:
 #  - clang
 #  - gcc
 
-matrix:
-  include:
-    - stage: macintosh
-      os: osx
-      before_script:
-        - brew install minizip
-    - os: linux
-      before_script:
-        - apt-get update
-        - apt-get install minizip
+addons:
+  apt:
+    update: true
+    packages: ["minizip"]
+  homebrew:
+    packages: ["minizip"]
 
+#matrix:
+#  include:
+#    - os: linux
+#      addons:
+#        apt:
+#          update: true
+#          packages: ["minizip"]
+#    - os: osx
+#      addons:
+#        homebrew:
+#          packages: ["minizip"]
+#
 
 #before_install:
 #  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install libbsd-dev libssl-dev; fi

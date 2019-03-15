@@ -1491,7 +1491,7 @@ DLL_EXPORT_XLSXIO void xlsxioread_debug_internals(xlsxioreader handle) {
 
   struct date_struct *dateFmt = NULL;
   for (dateFmt = handle->date_formats; dateFmt != NULL; dateFmt = (struct date_struct*)(dateFmt->hh.next)) {
-    printf("  date_format id=%d isDate=%d fmt=%s\n", dateFmt->id, dateFmt->isDate, dateFmt->fmt);
+    printf("  date_format id = %d\t isDate = %d\t fmt = %s\n", dateFmt->id, dateFmt->isDate, dateFmt->fmt);
   }
   printf("\n");
 }

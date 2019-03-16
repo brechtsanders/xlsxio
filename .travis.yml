@@ -18,19 +18,22 @@ matrix:
   allow_failures:
     - os: windows
 
-#before_script:
-#  - wget https://github.com/nmoinvaz/minizip/archive/2.8.4.zip
-#  - unzip 2.8.4.zip
-#  - cd minizip-2.8.4
-#  - mkdir build
-#  - cd build
-#  - cmake .. -DMZ_BUILD_TEST=ON -DMZ_BUILD_UNIT_TEST=ON -DCMAKE_BUILD_TYPE=Release
-#  - sudo cmake --build . --config Release
-#  - cd ../..
-
+jobs:
+  include:
+  - stage: install_local_minizip
+    os: windows
+    script:
+      - wget https://github.com/nmoinvaz/minizip/archive/2.8.4.zip
+      - unzip 2.8.4.zip
+      - cd minizip-2.8.4
+      - mkdir build
+      - cd build
+      - cmake .. -DMZ_BUILD_TEST=ON -DMZ_BUILD_UNIT_TEST=ON -DCMAKE_BUILD_TYPE=Release
+      - sudo cmake --build . --config Release
+      - export XLSXIO_CMAKE_ARGS="-DMINIZIP_DIR:PATH=$(pwd)"
 
 script:
-  - cmake .
+  - cmake . $XLSXIO_CMAKE_ARGS
   - cmake --build .
   - ./example_xlsxio_write
   - ls -lah example.xlsx

@@ -14,15 +14,13 @@ addons:
   homebrew:
     packages: ["minizip"]
 
-matrix:
+jobs:
   allow_failures:
     - os: windows
-
-jobs:
   include:
-  - stage: prepare
+  - stage: test
     os: windows
-    script:
+    before_script:
       - wget https://github.com/nmoinvaz/minizip/archive/2.8.4.zip
       - unzip 2.8.4.zip
       - cd minizip-2.8.4
@@ -30,9 +28,23 @@ jobs:
       - cd build
       - cmake .. -DMZ_BUILD_TEST=ON -DMZ_BUILD_UNIT_TEST=ON -DCMAKE_BUILD_TYPE=Release
       - cmake --build . --config Release
-      - export XLSXIO_CMAKE_ARGS="-DMINIZIP_DIR:PATH=$(pwd)"
+      - cd ../..
+    script:
+      - cmake . -DMINIZIP_DIR:PATH=$(pwd)/minizip-2.8.4/build
+      - cmake --build .
+      - ./example_xlsxio_write
+      - ls -lah example.xlsx
 
   - stage: test
+    os: linux
+    script:
+      - cmake . $XLSXIO_CMAKE_ARGS
+      - cmake --build .
+      - ./example_xlsxio_write
+      - ls -lah example.xlsx
+
+  - stage: test
+    os: osx
     script:
       - cmake . $XLSXIO_CMAKE_ARGS
       - cmake --build .

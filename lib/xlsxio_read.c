@@ -575,7 +575,7 @@ struct data_sheet_callback_data {
   cell_type_enum cell_type;
   XML_Char* number_fmt;
   unsigned int flags;
-  XML_Char* skiptag;                        //tag to skip
+  XML_Char* skiptag;                    //tag to skip
   size_t skiptagcount;                  //nesting level for current tag to skip
   XML_StartElementHandler skip_start;   //start handler to set after skipping
   XML_EndElementHandler skip_end;       //end handler to set after skipping

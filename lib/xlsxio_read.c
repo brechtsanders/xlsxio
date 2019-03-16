@@ -6,8 +6,6 @@
 #include <inttypes.h>
 #include <string.h>
 #include <expat.h>
-#include "uthash.h"
-#include "utarray.h"
 
 #ifdef USE_MINIZIP
 #  include <minizip/unzip.h>
@@ -531,19 +529,29 @@ struct main_sheet_get_rels_callback_data {
   XML_Char* stylesfile;
 };
 
-struct date_struct {
-  int id;                    /* key */
+struct xlsxio_number_format {
   int isDate;
+  int numFmtId;
   XML_Char* fmt;
-  UT_hash_handle hh;         /* makes this structure hashable */
+};
+
+struct xlsxio_cell_style {
+  int numFmtId;
+  struct xlsxio_number_format* numberFormat;
 };
 
 // aka xlsxioreader
 struct xlsxio_read_struct {
   ZIPFILETYPE* zip;
   const char* filename;
-  struct date_struct *date_formats;
-  UT_array *number_formats;
+
+  struct xlsxio_cell_style **styles;
+  int stylesCount;
+  int currentStyleIdx;
+
+  struct xlsxio_number_format **numberFormats;
+  int numberFormatsCount;
+  int currentNumberFormatIdx;
 };
 
 struct styles_callback_data {
@@ -657,8 +665,7 @@ DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open (const char* filename)
   }
 
   result->filename = filename;
-  result->number_formats = NULL;
-  result->date_formats = NULL;
+  result->numberFormats = NULL;
 
   get_styles(result);
 
@@ -696,8 +703,7 @@ DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open_filehandle (int filehandle)
   }
 
   result->filename = "*filehandle*";
-  result->number_formats = NULL;
-  result->date_formats = NULL;
+  result->numberFormats = NULL;
 
   get_styles(result);
 
@@ -745,8 +751,7 @@ DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open_memory (void* data, uint64_t data
 #endif
 
   result->filename = "*memory*";
-  result->number_formats = NULL;
-  result->date_formats = NULL;
+  result->numberFormats = NULL;
 
   get_styles(result);
 
@@ -758,7 +763,7 @@ DLL_EXPORT_XLSXIO void xlsxioread_close (xlsxioreader handle)
   if (handle) {
     // if we call "free()" more then once then it will crash with "pointer being freed was not allocated"
     // so we can call xlsxioread_close multiple times
-    int needFreeItself = handle->zip != NULL || handle->date_formats != NULL || handle->number_formats != NULL;
+    int needFreeItself = handle->zip != NULL || handle->styles != NULL || handle->numberFormats != NULL;
 
     //note: no need to call zip_source_free() after successful use in zip_open_from_source()
     if (handle->zip) {
@@ -770,14 +775,22 @@ DLL_EXPORT_XLSXIO void xlsxioread_close (xlsxioreader handle)
       handle->zip = NULL;
     }
 
-    if (handle->date_formats) {
-      HASH_CLEAR(hh, handle->date_formats);
-      handle->date_formats = NULL;
+    if (handle->styles) {
+      for(int i = 0; i < handle->stylesCount; i++) {
+        free(handle->styles[i]);
+      }
+      free(handle->styles);
+      handle->stylesCount = 0;
+      handle->styles = NULL;
     }
 
-    if (handle->number_formats) {
-      utarray_free(handle->number_formats);
-      handle->number_formats = NULL;
+    if (handle->numberFormats) {
+      for(int i = 0; i < handle->numberFormatsCount; i++) {
+        free(handle->numberFormats[i]);
+      }
+      free(handle->numberFormats);
+      handle->numberFormatsCount = 0;
+      handle->numberFormats = NULL;
     }
 
     if (needFreeItself) {
@@ -941,36 +954,50 @@ void format_types_start_callback(void* callbackdata, const XML_Char* name, const
 
   if (strcmp(name, "cellXfs") == 0) {
     pdata->lookForStyles = 1;
+    // allocate pdata->handle->styles according to "count" attribute
+    int stylesCount = atoi(get_expat_attr_by_name(atts, "count"));
+    pdata->handle->stylesCount = stylesCount;
+    if (stylesCount > 0) {
+      pdata->handle->styles = malloc(sizeof(struct xlsxio_cell_style) * stylesCount);
+    }
   } else if (strcmp(name, "numFmts") == 0) {
     pdata->lookForDates = 1;
+    // allocate pdata->handle->numberFormatsCount according to "count" attribute
+    int formatsCount = atoi(get_expat_attr_by_name(atts, "count"));
+    pdata->handle->numberFormatsCount = formatsCount;
+    if (formatsCount > 0) {
+      pdata->handle->numberFormats = malloc(sizeof(struct xlsxio_number_format) * formatsCount);
+    }
   } else if (pdata->lookForStyles && strcmp(name, "xf") == 0) {
-    const XML_Char* numFmtId = get_expat_attr_by_name(atts, "numFmtId");
-    int iVal = atoi(numFmtId);
-    utarray_push_back(pdata->handle->number_formats, &iVal);
+    // check if we have more <xf> tags then allocated
+    if (pdata->handle->currentStyleIdx < pdata->handle->stylesCount) {
+      const XML_Char* numFmtId = get_expat_attr_by_name(atts, "numFmtId");
+      struct xlsxio_cell_style *cell_style;
+      cell_style = malloc(sizeof(struct xlsxio_cell_style));
+      cell_style->numFmtId = atoi(numFmtId);
+      cell_style->numberFormat = NULL;
+
+      pdata->handle->styles[pdata->handle->currentStyleIdx] = cell_style;
+      pdata->handle->currentStyleIdx++;
+    }
+
   } else if (strcmp(name, "numFmt") == 0) {
-    const XML_Char* numFmtId = get_expat_attr_by_name(atts, "numFmtId");
-    struct date_struct *dateStruct;
-    dateStruct = malloc(sizeof(struct date_struct));
-    numFmtId = get_expat_attr_by_name(atts, "numFmtId");
-    dateStruct->id = atoi(numFmtId);
+    // check if we have more <numFmt> tags then allocated
+    if (pdata->handle->currentNumberFormatIdx < pdata->handle->numberFormatsCount) {
+      const XML_Char* numFmtId = get_expat_attr_by_name(atts, "numFmtId");
 
-    const XML_Char* formatCode = get_expat_attr_by_name(atts, "formatCode");
+      struct xlsxio_number_format *number_format;
+      number_format = malloc(sizeof(struct xlsxio_number_format));
+      number_format->numFmtId = atoi(numFmtId);
 
-    dateStruct->isDate = is_date_format(formatCode);
-    dateStruct->fmt = XML_Char_dupchar(formatCode);
-    HASH_ADD_INT(pdata->handle->date_formats, id, dateStruct);  /* id: name of key field */
-  } else if (pdata->lookForDates && strcmp(name, "xf") == 0) {
-    const XML_Char* numFmtId = get_expat_attr_by_name(atts, "numFmtId");
-    struct date_struct *dateStruct;
-    dateStruct = malloc(sizeof(struct date_struct));
-    numFmtId = get_expat_attr_by_name(atts, "numFmtId");
-    dateStruct->id = atoi(numFmtId);
+      const XML_Char* formatCode = get_expat_attr_by_name(atts, "formatCode");
 
-    const XML_Char* formatCode = get_expat_attr_by_name(atts, "formatCode");
+      number_format->fmt = XML_Char_dupchar(formatCode);
+      number_format->isDate = is_date_format(formatCode);
 
-    dateStruct->isDate = is_date_format(formatCode);
-    dateStruct->fmt = XML_Char_dupchar(formatCode);
-    HASH_ADD_INT(pdata->handle->date_formats, id, dateStruct);  /* id: name of key field */
+      pdata->handle->numberFormats[pdata->handle->currentNumberFormatIdx] = number_format;
+      pdata->handle->currentNumberFormatIdx++;
+    }
   }
 }
 
@@ -1333,25 +1360,23 @@ void data_sheet_expat_callback_find_cell_start (void* callbackdata, const XML_Ch
       if (s == NULL) {
         data->cell_type = cell_type_value;
       } else {
-        int formatIndex = atoi(s);
-        int formatNum = *(int*)utarray_eltptr(data->handle->number_formats, formatIndex);
+        int styleNum = atoi(s);
+        if (styleNum < data->handle->currentNumberFormatIdx) {
+          struct xlsxio_cell_style *cell_style = data->handle->styles[styleNum];
 
-        struct date_struct *dateStruct = NULL;
+          int isDateTime = cell_style->numberFormat ? cell_style->numberFormat->isDate : 0;
 
-        HASH_FIND_INT(data->handle->date_formats, &formatNum, dateStruct);
+          // builtin date formats are 14 - 22
+          if ((cell_style->numFmtId > 13 && cell_style->numFmtId < 23) || isDateTime) {
+            data->cell_type = cell_type_date;
+          } else {
+            data->cell_type = cell_type_value;
+          }
 
-        int isDateTime = dateStruct ? dateStruct->isDate : 0;
-
-        // builtin date formats are 14 - 22
-        if ((formatNum > 13 && formatNum < 23) || isDateTime) {
-          data->cell_type = cell_type_date;
-        } else {
-          data->cell_type = cell_type_value;
-        }
-
-        // apply for dates and numbers
-        if (dateStruct) {
-          data->number_fmt = dateStruct->fmt;
+          // apply for dates and numbers
+          if (cell_style->numberFormat) {
+            data->number_fmt = cell_style->numberFormat->fmt;
+          }
         }
       }
     }
@@ -1463,36 +1488,51 @@ void data_sheet_expat_callback_value_data (void* callbackdata, const XML_Char* b
 }
 
 // extract number and date formats from styles.xml
-// save it in handle->number_formats and handle->date_formats
+// save it in handle->numberFormats and handle->date_formats
 void get_styles(xlsxioreader handle) {
   struct styles_callback_data stylesCallbackData;
   stylesCallbackData.lookForStyles = 0;
   stylesCallbackData.lookForDates = 0;
   stylesCallbackData.handle = handle;
 
-  utarray_new(handle->number_formats, &ut_int_icd);
-  HASH_CLEAR(hh, handle->date_formats);
+  handle->currentNumberFormatIdx = 0;
+  handle->currentStyleIdx = 0;
+
+  //utarray_new(handle->numberFormats, &ut_int_icd);
+  //HASH_CLEAR(hh, handle->date_formats);
 
   expat_process_zip_file(handle->zip, "xl/styles.xml", format_types_start_callback, format_types_end_callback, NULL, &stylesCallbackData, NULL);
+
+  // attach number_format struct to style struct
+  for (int si = 0; si < handle->currentStyleIdx; si++) {
+    if (handle->styles[si]->numFmtId) {
+      for(int fi = 0; fi < handle->currentNumberFormatIdx; fi++) {
+        if (handle->numberFormats[fi]->numFmtId == handle->styles[si]->numFmtId) {
+          handle->styles[si]->numberFormat = handle->numberFormats[fi];
+        }
+      }
+    }
+  }
 }
 
 DLL_EXPORT_XLSXIO void xlsxioread_debug_internals(xlsxioreader handle) {
   printf("\n");
   printf("XLSXIO_READ DEBUG - %s\n", handle->filename);
+
   printf("number_formats:\n");
-
-  int *p, i = 0;
-  for (p = (int*)utarray_front(handle->number_formats); p != NULL; p = (int*)utarray_next(handle->number_formats, p)) {
-    printf("  number_format %i - %d\n", i, *p);
-    i += 1;
+  for(int fi = 0; fi < handle->currentNumberFormatIdx; fi++) {
+    printf("  numFmtId = %d\tisDate = %d\tnumber_format = %s\n",
+      handle->numberFormats[fi]->numFmtId, handle->numberFormats[fi]->isDate, handle->numberFormats[fi]->fmt);
   }
 
-  printf("date_formats:\n");
-
-  struct date_struct *dateFmt = NULL;
-  for (dateFmt = handle->date_formats; dateFmt != NULL; dateFmt = (struct date_struct*)(dateFmt->hh.next)) {
-    printf("  date_format id = %d\t isDate = %d\t fmt = %s\n", dateFmt->id, dateFmt->isDate, dateFmt->fmt);
+  printf("styles:\n");
+  struct xlsxio_number_format *numberFormat;
+  for (int si = 0; si < handle->currentStyleIdx; si++) {
+    numberFormat = handle->styles[si]->numberFormat;
+    printf("  id = %d\tnumFmtId = %d\tisDate = %d\tnumber_format = %s\n",
+      si, handle->styles[si]->numFmtId, numberFormat ? numberFormat->isDate : 0, numberFormat ? numberFormat->fmt : NULL);
   }
+
   printf("\n");
 }
 
@@ -1683,7 +1723,6 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_row (xlsxioreadersheet sheethandle)
 
 DLL_EXPORT_XLSXIO struct data_sheet_cell_data* xlsxioread_sheet_next_cell_struct (xlsxioreadersheet sheethandle)
 {
-  XML_Char* result;
   if (!sheethandle) {
     return NULL;
   }

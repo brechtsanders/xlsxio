@@ -1361,7 +1361,7 @@ void data_sheet_expat_callback_find_cell_start (void* callbackdata, const XML_Ch
         data->cell_type = cell_type_value;
       } else {
         int styleNum = atoi(s);
-        if (styleNum < data->handle->current_numberformat_idx) {
+        if (styleNum < data->handle->current_style_idx) {
           struct xlsxio_cell_style *cell_style = data->handle->styles[styleNum];
 
           int is_dateTime = cell_style->numberformat ? cell_style->numberformat->is_date : 0;

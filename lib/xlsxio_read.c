@@ -557,7 +557,7 @@ struct xlsxio_read_struct {
 struct styles_callback_data {
   XML_Parser xmlparser;
   int look_for_styles;
-  int look_for_dates;
+  int look_for_numfmt;
   struct xlsxio_read_struct* handle;
 };
 
@@ -961,7 +961,7 @@ void format_types_start_callback(void* callbackdata, const XML_Char* name, const
       pdata->handle->styles = malloc(sizeof(struct xlsxio_cell_style) * styles_count);
     }
   } else if (strcmp(name, "numFmts") == 0) {
-    pdata->look_for_dates = 1;
+    pdata->look_for_numfmt = 1;
     // allocate pdata->handle->numberformats_count according to "count" attribute
     int formats_count = atoi(get_expat_attr_by_name(atts, "count"));
     pdata->handle->numberformats_count = formats_count;
@@ -981,8 +981,9 @@ void format_types_start_callback(void* callbackdata, const XML_Char* name, const
       pdata->handle->current_style_idx++;
     }
 
-  } else if (strcmp(name, "numFmt") == 0) {
+  } else if (pdata->look_for_numfmt && strcmp(name, "numFmt") == 0) {
     // check if we have more <numFmt> tags then allocated
+
     if (pdata->handle->current_numberformat_idx < pdata->handle->numberformats_count) {
       const XML_Char* numFmtId = get_expat_attr_by_name(atts, "numFmtId");
 
@@ -1007,7 +1008,7 @@ void format_types_end_callback(void* callbackdata, const XML_Char* name) {
     pdata->look_for_styles = 0;
   } else if (strcmp(name, "numFmts") == 0) {
     struct styles_callback_data* pdata = (struct styles_callback_data*)callbackdata;
-    pdata->look_for_dates = 0;
+    pdata->look_for_numfmt = 0;
   }
 }
 
@@ -1492,11 +1493,13 @@ void data_sheet_expat_callback_value_data (void* callbackdata, const XML_Char* b
 void get_styles(xlsxioreader handle) {
   struct styles_callback_data stylesCallbackData;
   stylesCallbackData.look_for_styles = 0;
-  stylesCallbackData.look_for_dates = 0;
+  stylesCallbackData.look_for_numfmt = 0;
   stylesCallbackData.handle = handle;
 
   handle->current_numberformat_idx = 0;
   handle->current_style_idx = 0;
+  handle->numberformats_count = 0;
+  handle->styles_count = 0;
 
   expat_process_zip_file(handle->zip, "xl/styles.xml", format_types_start_callback, format_types_end_callback, NULL, &stylesCallbackData, NULL);
 

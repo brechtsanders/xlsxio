@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -v
+set -e
+
+wget https://zlib.net/zlib-1.2.11.tar.gz
+tar -xzf zlib-1.2.11.tar.gz
+rm zlib-1.2.11.tar.gz
+
+cd zlib-1.2.11
+
+./configure
+make
+make install
+
+cd contrib/minizip
+make
+make install
+
+ls -lah

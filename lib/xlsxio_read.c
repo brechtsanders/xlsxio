@@ -37,6 +37,10 @@
 #define DLL_EXPORT_XLSXIO
 #endif
 
+#if defined(_MSC_VER) || (defined(__MINGW32__) && !defined(__MINGW64__))
+#define strcasecmp _stricmp
+#endif
+
 #define PARSE_BUFFER_SIZE 256
 //#define PARSE_BUFFER_SIZE 4
 
@@ -116,22 +120,6 @@ static ZIPFILEENTRYTYPE* XML_Char_openzip (ZIPFILETYPE* archive, const XML_Char*
 }
 
 #endif
-
-
-DLL_EXPORT_XLSXIO void xlsxioread_get_version (int* pmajor, int* pminor, int* pmicro)
-{
-  if (pmajor)
-    *pmajor = XLSXIO_VERSION_MAJOR;
-  if (pminor)
-    *pminor = XLSXIO_VERSION_MINOR;
-  if (pmicro)
-    *pmicro = XLSXIO_VERSION_MICRO;
-}
-
-DLL_EXPORT_XLSXIO const XLSXIOCHAR* xlsxioread_get_version_string ()
-{
-  return (const XLSXIOCHAR*)XLSXIO_VERSION_STRING;
-}
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -270,8 +258,9 @@ XML_Char* get_relationship_filename (const XML_Char* filename)
   if ((result = XML_Char_malloc(filenamelen + 12)) != NULL) {
     size_t i = filenamelen;
     while (i > 0) {
-      if (filename[i - 1] == '/')
+      if (filename[i - 1] == '/') {
         break;
+      }
       i--;
     }
     XML_Char_poscpy(result, 0, filename, i);
@@ -288,10 +277,10 @@ XML_Char* join_basepath_filename (const XML_Char* basepath, const XML_Char* file
   XML_Char* result = NULL;
   if (filename && *filename) {
     if (filename[0] == '/' && filename[1]) {
-      //file is absolute: remove leading slash
+      // file is absolute: remove leading slash
       result = XML_Char_dup(filename + 1);
     } else {
-      //file is relative: prepend base path
+      // file is relative: prepend base path
       size_t basepathlen = (basepath ? XML_Char_len(basepath) : 0);
       size_t filenamelen = XML_Char_len(filename);
       if ((result = XML_Char_malloc(basepathlen + filenamelen + 1)) != NULL) {
@@ -345,29 +334,8 @@ size_t get_row_nr (const XML_Char* A1col)
   return result;
 }
 
-////////////////////////////////////////////////////////////////////////
-
-struct xlsxio_read_struct {
-  ZIPFILETYPE* zip;
-};
-
-DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open (const char* filename)
-{
-  xlsxioreader result;
-  if ((result = (xlsxioreader)malloc(sizeof(struct xlsxio_read_struct))) != NULL) {
 #ifdef USE_MINIZIP
-    if ((result->zip = unzOpen(filename)) == NULL) {
-#else
-    if ((result->zip = zip_open(filename, ZIP_RDONLY, NULL)) == NULL) {
-#endif
-      free(result);
-      return NULL;
-    }
-  }
-  return result;
-}
 
-#ifdef USE_MINIZIP
 struct minizip_io_filehandle_data {
   int filehandle;
 };
@@ -434,41 +402,7 @@ long ZCALLBACK minizip_io_filehandle_seek_file_fn (voidpf opaque, voidpf stream,
   }
   return (IOFN(lseek)(*(int*)stream, offset, whence) >= 0 ? 0 : -1);
 }
-#endif
 
-DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open_filehandle (int filehandle)
-{
-  xlsxioreader result;
-  if ((result = (xlsxioreader)malloc(sizeof(struct xlsxio_read_struct))) != NULL) {
-#ifdef USE_MINIZIP
-    zlib_filefunc_def minizip_io_filehandle_functions;
-    if ((minizip_io_filehandle_functions.opaque = malloc(sizeof(struct minizip_io_filehandle_data))) == NULL) {
-      free(result);
-      return NULL;
-    }
-    minizip_io_filehandle_functions.zopen_file = minizip_io_filehandle_open_file_fn;
-    minizip_io_filehandle_functions.zread_file = minizip_io_filehandle_read_file_fn;
-    minizip_io_filehandle_functions.zwrite_file = /*minizip_io_filehandle_write_file_fn*/NULL;
-    minizip_io_filehandle_functions.ztell_file = minizip_io_filehandle_tell_file_fn;
-    minizip_io_filehandle_functions.zseek_file = minizip_io_filehandle_seek_file_fn;
-    minizip_io_filehandle_functions.zclose_file = minizip_io_filehandle_close_file_fn;
-    minizip_io_filehandle_functions.zerror_file = minizip_io_filehandle_testerror_file_fn;
-    ((struct minizip_io_filehandle_data*)minizip_io_filehandle_functions.opaque)->filehandle = filehandle;
-    if ((result->zip = unzOpen2(NULL, &minizip_io_filehandle_functions)) == NULL) {
-      free(result);
-      return NULL;
-    }
-#else
-    if ((result->zip = zip_fdopen(filehandle, ZIP_RDONLY, NULL)) == NULL) {
-      free(result);
-      return NULL;
-    }
-#endif
-  }
-  return result;
-}
-
-#ifdef USE_MINIZIP
 struct minizip_io_memory_data {
   void* data;
   uint64_t datalen;
@@ -576,9 +510,210 @@ long ZCALLBACK minizip_io_memory_seek_file_fn (voidpf opaque, voidpf stream, uLo
 }
 #endif
 
+
+////////////////////////////////////////////////////////////////////////
+
+
+////
+// STRUCTS
+////
+
+// callback data structure used by main_sheet_get_sheetfile_callback
+struct main_sheet_get_rels_callback_data {
+  XML_Parser xmlparser;
+  const XML_Char* sheetname;
+  XML_Char* basepath;
+  XML_Char* sheetrelid;
+  XML_Char* sheetfile;
+  XML_Char* sharedstringsfile;
+  XML_Char* stylesfile;
+};
+
+struct xlsxio_number_format {
+  int is_date;
+  int numFmtId;
+  XML_Char* fmt;
+};
+
+struct xlsxio_cell_style {
+  int numFmtId;
+  struct xlsxio_number_format* numberformat;
+};
+
+// aka xlsxioreader
+struct xlsxio_read_struct {
+  ZIPFILETYPE* zip;
+  const char* filename;
+
+  struct xlsxio_cell_style **styles;
+  int styles_count;
+  int current_style_idx;
+
+  struct xlsxio_number_format **numberformats;
+  int numberformats_count;
+  int current_numberformat_idx;
+};
+
+struct styles_callback_data {
+  XML_Parser xmlparser;
+  int look_for_styles;
+  int look_for_numfmt;
+  struct xlsxio_read_struct* handle;
+};
+
+typedef enum {
+  none,
+  value_string,
+  inline_string,
+  shared_string
+} cell_string_type_enum;
+
+#define XLSXIOREAD_NO_CALLBACK          0x80
+
+struct data_sheet_callback_data {
+  XML_Parser xmlparser;
+  struct xlsxio_read_struct* handle;
+  struct sharedstringlist* sharedstrings;
+  size_t rownr;
+  size_t colnr;
+  size_t cols;
+  XML_Char* celldata;
+  size_t celldatalen;
+  cell_string_type_enum cell_string_type;
+  cell_type_enum cell_type;
+  XML_Char* number_fmt;
+  unsigned int flags;
+  XML_Char* skiptag;                    //tag to skip
+  size_t skiptagcount;                  //nesting level for current tag to skip
+  XML_StartElementHandler skip_start;   //start handler to set after skipping
+  XML_EndElementHandler skip_end;       //end handler to set after skipping
+  XML_CharacterDataHandler skip_data;   //data handler to set after skipping
+  xlsxioread_process_row_callback_fn sheet_row_callback;
+  xlsxioread_process_cell_callback_fn sheet_cell_callback;
+  void* callbackdata;
+};
+
+// callback function definition for use with iterate_files_by_contenttype
+typedef void (*contenttype_file_callback_fn)(ZIPFILETYPE* zip, const XML_Char* filename, const XML_Char* contenttype, void* callbackdata);
+
+struct iterate_files_by_contenttype_callback_data {
+  ZIPFILETYPE* zip;
+  const XML_Char* contenttype;
+  contenttype_file_callback_fn filecallbackfn;
+  void* filecallbackdata;
+};
+
+struct xlsxio_read_sheet_struct {
+  xlsxioreader handle;
+  ZIPFILEENTRYTYPE* zipfile;
+  struct data_sheet_callback_data processcallbackdata;
+  size_t lastrownr;
+  size_t paddingrow;
+  size_t lastcolnr;
+  size_t paddingcol;
+};
+
+// callback structure used by main_sheet_list_expat_callback_element_start
+struct main_sheet_list_callback_data {
+  XML_Parser xmlparser;
+  xlsxioread_list_sheets_callback_fn callback;
+  void* callbackdata;
+};
+
+struct xlsxio_read_sheetlist_struct {
+  xlsxioreader handle;
+  ZIPFILEENTRYTYPE* zipfile;
+  struct main_sheet_list_callback_data sheetcallbackdata;
+  XML_Parser xmlparser;
+  XML_Char* nextsheetname;
+};
+
+////
+// FUNCTIONS
+////
+
+DLL_EXPORT_XLSXIO void xlsxioread_get_version (int* pmajor, int* pminor, int* pmicro)
+{
+  if (pmajor)
+    *pmajor = XLSXIO_VERSION_MAJOR;
+  if (pminor)
+    *pminor = XLSXIO_VERSION_MINOR;
+  if (pmicro)
+    *pmicro = XLSXIO_VERSION_MICRO;
+}
+
+DLL_EXPORT_XLSXIO const XLSXIOCHAR* xlsxioread_get_version_string ()
+{
+  return (const XLSXIOCHAR*)XLSXIO_VERSION_STRING;
+}
+
+void get_styles(xlsxioreader handle);
+
+DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open (const char* filename)
+{
+  xlsxioreader result;
+
+  if ((result = (xlsxioreader)malloc(sizeof(struct xlsxio_read_struct))) != NULL) {
+#ifdef USE_MINIZIP
+    if ((result->zip = unzOpen(filename)) == NULL) {
+#else
+    if ((result->zip = zip_open(filename, ZIP_RDONLY, NULL)) == NULL) {
+#endif
+      free(result);
+      return NULL;
+    }
+  }
+
+  result->filename = filename;
+  result->numberformats = NULL;
+
+  get_styles(result);
+
+  return result;
+}
+
+DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open_filehandle (int filehandle)
+{
+  xlsxioreader result;
+  if ((result = (xlsxioreader)malloc(sizeof(struct xlsxio_read_struct))) != NULL) {
+#ifdef USE_MINIZIP
+    zlib_filefunc_def minizip_io_filehandle_functions;
+    if ((minizip_io_filehandle_functions.opaque = malloc(sizeof(struct minizip_io_filehandle_data))) == NULL) {
+      free(result);
+      return NULL;
+    }
+    minizip_io_filehandle_functions.zopen_file = minizip_io_filehandle_open_file_fn;
+    minizip_io_filehandle_functions.zread_file = minizip_io_filehandle_read_file_fn;
+    minizip_io_filehandle_functions.zwrite_file = /*minizip_io_filehandle_write_file_fn*/NULL;
+    minizip_io_filehandle_functions.ztell_file = minizip_io_filehandle_tell_file_fn;
+    minizip_io_filehandle_functions.zseek_file = minizip_io_filehandle_seek_file_fn;
+    minizip_io_filehandle_functions.zclose_file = minizip_io_filehandle_close_file_fn;
+    minizip_io_filehandle_functions.zerror_file = minizip_io_filehandle_testerror_file_fn;
+    ((struct minizip_io_filehandle_data*)minizip_io_filehandle_functions.opaque)->filehandle = filehandle;
+    if ((result->zip = unzOpen2(NULL, &minizip_io_filehandle_functions)) == NULL) {
+      free(result);
+      return NULL;
+    }
+#else
+    if ((result->zip = zip_fdopen(filehandle, ZIP_RDONLY, NULL)) == NULL) {
+      free(result);
+      return NULL;
+    }
+#endif
+  }
+
+  result->filename = "*filehandle*";
+  result->numberformats = NULL;
+
+  get_styles(result);
+
+  return result;
+}
+
 DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open_memory (void* data, uint64_t datalen, int freedata)
 {
   xlsxioreader result;
+
 #ifdef USE_MINIZIP
   if ((result = (xlsxioreader)malloc(sizeof(struct xlsxio_read_struct))) != NULL) {
     zlib_filefunc_def minizip_io_memory_functions;
@@ -614,35 +749,60 @@ DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open_memory (void* data, uint64_t data
     }
   }
 #endif
+
+  result->filename = "*memory*";
+  result->numberformats = NULL;
+
+  get_styles(result);
+
   return result;
 }
 
 DLL_EXPORT_XLSXIO void xlsxioread_close (xlsxioreader handle)
 {
   if (handle) {
+    // if we call "free()" more then once then it will crash with "pointer being freed was not allocated"
+    // so we can call xlsxioread_close multiple times
+    int needFreeItself = handle->zip != NULL || handle->styles != NULL || handle->numberformats != NULL;
+
     //note: no need to call zip_source_free() after successful use in zip_open_from_source()
+    if (handle->zip) {
 #ifdef USE_MINIZIP
-    unzClose(handle->zip);
+      unzClose(handle->zip);
 #else
-    zip_close(handle->zip);
+      zip_close(handle->zip);
 #endif
-    free(handle);
+      handle->zip = NULL;
+    }
+
+    if (handle->styles) {
+      for(int i = 0; i < handle->styles_count; i++) {
+        free(handle->styles[i]);
+      }
+      free(handle->styles);
+      handle->styles_count = 0;
+      handle->styles = NULL;
+    }
+
+    if (handle->numberformats) {
+      for(int i = 0; i < handle->numberformats_count; i++) {
+        free(handle->numberformats[i]);
+      }
+      free(handle->numberformats);
+      handle->numberformats_count = 0;
+      handle->numberformats = NULL;
+    }
+
+    if (needFreeItself) {
+      // if we have 2 pointers to same struct, this may cause seg fault
+      // free(handle);
+    }
   }
 }
 
 ////////////////////////////////////////////////////////////////////////
 
-//callback function definition for use with iterate_files_by_contenttype
-typedef void (*contenttype_file_callback_fn)(ZIPFILETYPE* zip, const XML_Char* filename, const XML_Char* contenttype, void* callbackdata);
-
-struct iterate_files_by_contenttype_callback_data {
-  ZIPFILETYPE* zip;
-  const XML_Char* contenttype;
-  contenttype_file_callback_fn filecallbackfn;
-  void* filecallbackdata;
-};
-
-//expat callback function for element start used by iterate_files_by_contenttype
+// expat callback function for element start used by iterate_files_by_contenttype
 void iterate_files_by_contenttype_expat_callback_element_start (void* callbackdata, const XML_Char* name, const XML_Char** atts)
 {
   struct iterate_files_by_contenttype_callback_data* data = (struct iterate_files_by_contenttype_callback_data*)callbackdata;
@@ -706,7 +866,7 @@ unzGetGlobalInfo(data->zip, &zipglobalinfo);
   }
 }
 
-//list file names by content type
+// list file names by content type
 int iterate_files_by_contenttype (ZIPFILETYPE* zip, const XML_Char* contenttype, contenttype_file_callback_fn filecallbackfn, void* filecallbackdata, XML_Parser* xmlparser)
 {
   struct iterate_files_by_contenttype_callback_data callbackdata = {
@@ -720,14 +880,7 @@ int iterate_files_by_contenttype (ZIPFILETYPE* zip, const XML_Char* contenttype,
 
 ////////////////////////////////////////////////////////////////////////
 
-//callback structure used by main_sheet_list_expat_callback_element_start
-struct main_sheet_list_callback_data {
-  XML_Parser xmlparser;
-  xlsxioread_list_sheets_callback_fn callback;
-  void* callbackdata;
-};
-
-//callback used by xlsxioread_list_sheets
+// callback used by xlsxioread_list_sheets
 void main_sheet_list_expat_callback_element_start (void* callbackdata, const XML_Char* name, const XML_Char** atts)
 {
   struct main_sheet_list_callback_data* data = (struct main_sheet_list_callback_data*)callbackdata;
@@ -752,14 +905,14 @@ void main_sheet_list_expat_callback_element_start (void* callbackdata, const XML
   }
 }
 
-//process contents each sheet listed in main sheet
+// process contents each sheet listed in main sheet
 void xlsxioread_list_sheets_callback (ZIPFILETYPE* zip, const XML_Char* filename, const XML_Char* contenttype, void* callbackdata)
 {
-  //get sheet information from file
+  // get sheet information from file
   expat_process_zip_file(zip, filename, main_sheet_list_expat_callback_element_start, NULL, NULL, callbackdata, &((struct main_sheet_list_callback_data*)callbackdata)->xmlparser);
 }
 
-//list all worksheets
+// list all worksheets
 DLL_EXPORT_XLSXIO void xlsxioread_list_sheets (xlsxioreader handle, xlsxioread_list_sheets_callback_fn callback, void* callbackdata)
 {
   if (!handle || !callback)
@@ -775,18 +928,91 @@ DLL_EXPORT_XLSXIO void xlsxioread_list_sheets (xlsxioreader handle, xlsxioread_l
 
 ////////////////////////////////////////////////////////////////////////
 
-//callback data structure used by main_sheet_get_sheetfile_callback
-struct main_sheet_get_rels_callback_data {
-  XML_Parser xmlparser;
-  const XML_Char* sheetname;
-  XML_Char* basepath;
-  XML_Char* sheetrelid;
-  XML_Char* sheetfile;
-  XML_Char* sharedstringsfile;
-  XML_Char* stylesfile;
-};
+int is_date_format(const XML_Char* ch) {
+  // 'Red' is used in Excel general formats, for its 'd' not to be interpreted as 'd' in day the string is removed
+  char* pRed;
+  if ((pRed = strstr(ch, "Red")) != NULL) {
+    pRed[0] = pRed[1] = pRed[2] = ' ';
+  }
 
-//determine relationship id for specific sheet name
+  if (strstr(ch, "y"))  // year
+    return 1;
+  if (strstr(ch, "m"))  // month/minute
+    return 1;
+  if (strstr(ch, "d"))  // day
+    return 1;
+  if (strstr(ch, "h"))  // hour
+    return 1;
+  if (strstr(ch, "s"))  // second
+    return 1;
+
+  return 0;
+}
+
+void format_types_start_callback(void* callbackdata, const XML_Char* name, const XML_Char** atts) {
+  struct styles_callback_data* pdata = (struct styles_callback_data*)callbackdata;
+
+  if (strcmp(name, "cellXfs") == 0) {
+    pdata->look_for_styles = 1;
+    // allocate pdata->handle->styles according to "count" attribute
+    int styles_count = atoi(get_expat_attr_by_name(atts, "count"));
+    pdata->handle->styles_count = styles_count;
+    if (styles_count > 0) {
+      pdata->handle->styles = malloc(sizeof(struct xlsxio_cell_style) * styles_count);
+    }
+  } else if (strcmp(name, "numFmts") == 0) {
+    pdata->look_for_numfmt = 1;
+    // allocate pdata->handle->numberformats_count according to "count" attribute
+    int formats_count = atoi(get_expat_attr_by_name(atts, "count"));
+    pdata->handle->numberformats_count = formats_count;
+    if (formats_count > 0) {
+      pdata->handle->numberformats = malloc(sizeof(struct xlsxio_number_format) * formats_count);
+    }
+  } else if (pdata->look_for_styles && strcmp(name, "xf") == 0) {
+    // check if we have more <xf> tags then allocated
+    if (pdata->handle->current_style_idx < pdata->handle->styles_count) {
+      const XML_Char* numFmtId = get_expat_attr_by_name(atts, "numFmtId");
+      struct xlsxio_cell_style *cell_style;
+      cell_style = malloc(sizeof(struct xlsxio_cell_style));
+      cell_style->numFmtId = atoi(numFmtId);
+      cell_style->numberformat = NULL;
+
+      pdata->handle->styles[pdata->handle->current_style_idx] = cell_style;
+      pdata->handle->current_style_idx++;
+    }
+
+  } else if (pdata->look_for_numfmt && strcmp(name, "numFmt") == 0) {
+    // check if we have more <numFmt> tags then allocated
+
+    if (pdata->handle->current_numberformat_idx < pdata->handle->numberformats_count) {
+      const XML_Char* numFmtId = get_expat_attr_by_name(atts, "numFmtId");
+
+      struct xlsxio_number_format *number_format;
+      number_format = malloc(sizeof(struct xlsxio_number_format));
+      number_format->numFmtId = atoi(numFmtId);
+
+      const XML_Char* formatCode = get_expat_attr_by_name(atts, "formatCode");
+
+      number_format->fmt = XML_Char_dupchar(formatCode);
+      number_format->is_date = is_date_format(formatCode);
+
+      pdata->handle->numberformats[pdata->handle->current_numberformat_idx] = number_format;
+      pdata->handle->current_numberformat_idx++;
+    }
+  }
+}
+
+void format_types_end_callback(void* callbackdata, const XML_Char* name) {
+  if (strcmp(name, "cellXfs") == 0) {
+    struct styles_callback_data* pdata = (struct styles_callback_data*)callbackdata;
+    pdata->look_for_styles = 0;
+  } else if (strcmp(name, "numFmts") == 0) {
+    struct styles_callback_data* pdata = (struct styles_callback_data*)callbackdata;
+    pdata->look_for_numfmt = 0;
+  }
+}
+
+// determine relationship id for specific sheet name
 void main_sheet_get_relid_expat_callback_element_start (void* callbackdata, const XML_Char* name, const XML_Char** atts)
 {
   struct main_sheet_get_rels_callback_data* data = (struct main_sheet_get_rels_callback_data*)callbackdata;
@@ -803,7 +1029,7 @@ void main_sheet_get_relid_expat_callback_element_start (void* callbackdata, cons
   }
 }
 
-//determine file names for specific relationship id
+// determine file names for specific relationship id
 void main_sheet_get_sheetfile_expat_callback_element_start (void* callbackdata, const XML_Char* name, const XML_Char** atts)
 {
   struct main_sheet_get_rels_callback_data* data = (struct main_sheet_get_rels_callback_data*)callbackdata;
@@ -835,7 +1061,7 @@ void main_sheet_get_sheetfile_expat_callback_element_start (void* callbackdata, 
   }
 }
 
-//determine the file name for a specified sheet name
+// determine the file name for a specified sheet name
 void main_sheet_get_sheetfile_callback (ZIPFILETYPE* zip, const XML_Char* filename, const XML_Char* contenttype, void* callbackdata)
 {
   struct main_sheet_get_rels_callback_data* data = (struct main_sheet_get_rels_callback_data*)callbackdata;
@@ -847,8 +1073,9 @@ void main_sheet_get_sheetfile_callback (ZIPFILETYPE* zip, const XML_Char* filena
     //determine base name (including trailing slash)
     size_t i = XML_Char_len(filename);
     while (i > 0) {
-      if (filename[i - 1] == '/')
+      if (filename[i - 1] == '/') {
         break;
+      }
       i--;
     }
     if (data->basepath)
@@ -870,36 +1097,7 @@ void main_sheet_get_sheetfile_callback (ZIPFILETYPE* zip, const XML_Char* filena
 
 ////////////////////////////////////////////////////////////////////////
 
-typedef enum {
-  none,
-  value_string,
-  inline_string,
-  shared_string
-} cell_string_type_enum;
-
-#define XLSXIOREAD_NO_CALLBACK          0x80
-
-struct data_sheet_callback_data {
-  XML_Parser xmlparser;
-  struct sharedstringlist* sharedstrings;
-  size_t rownr;
-  size_t colnr;
-  size_t cols;
-  XML_Char* celldata;
-  size_t celldatalen;
-  cell_string_type_enum cell_string_type;
-  unsigned int flags;
-  XML_Char* skiptag;                        //tag to skip
-  size_t skiptagcount;                  //nesting level for current tag to skip
-  XML_StartElementHandler skip_start;   //start handler to set after skipping
-  XML_EndElementHandler skip_end;       //end handler to set after skipping
-  XML_CharacterDataHandler skip_data;   //data handler to set after skipping
-  xlsxioread_process_row_callback_fn sheet_row_callback;
-  xlsxioread_process_cell_callback_fn sheet_cell_callback;
-  void* callbackdata;
-};
-
-void data_sheet_callback_data_initialize (struct data_sheet_callback_data* data, struct sharedstringlist* sharedstrings, unsigned int flags, xlsxioread_process_cell_callback_fn cell_callback, xlsxioread_process_row_callback_fn row_callback, void* callbackdata)
+void data_sheet_callback_data_initialize (xlsxioreader handle, struct data_sheet_callback_data* data, struct sharedstringlist* sharedstrings, unsigned int flags, xlsxioread_process_cell_callback_fn cell_callback, xlsxioread_process_row_callback_fn row_callback, void* callbackdata)
 {
   data->xmlparser = NULL;
   data->sharedstrings = sharedstrings;
@@ -909,6 +1107,8 @@ void data_sheet_callback_data_initialize (struct data_sheet_callback_data* data,
   data->celldata = NULL;
   data->celldatalen = 0;
   data->cell_string_type = none;
+  data->cell_type = cell_type_none;
+  data->number_fmt = NULL;
   data->flags = flags;
   data->skiptag = NULL;
   data->skiptagcount = 0;
@@ -918,6 +1118,7 @@ void data_sheet_callback_data_initialize (struct data_sheet_callback_data* data,
   data->sheet_cell_callback = cell_callback;
   data->sheet_row_callback = row_callback;
   data->callbackdata = callbackdata;
+  data->handle = handle;
 }
 
 void data_sheet_callback_data_cleanup (struct data_sheet_callback_data* data)
@@ -1064,11 +1265,13 @@ void data_sheet_expat_callback_find_cell_start (void* callbackdata, const XML_Ch
   if (XML_Char_icmp_ins(name, X("c")) == 0) {
     const XML_Char* t = get_expat_attr_by_name(atts, X("r"));
     size_t cellcolnr = get_col_nr(t);
+
     //skip everything when out of bounds
     if (cellcolnr && data->cols && (data->flags & XLSXIOREAD_SKIP_EXTRA_CELLS) && cellcolnr > data->cols) {
       data->colnr = cellcolnr - 1;
       return;
     }
+
     //insert empty rows if needed
     if (data->colnr == 0) {
       size_t cellrownr = get_row_nr(t);
@@ -1100,6 +1303,7 @@ void data_sheet_expat_callback_find_cell_start (void* callbackdata, const XML_Ch
         }
       }
     }
+
     //insert empty columns if needed
     if (cellcolnr) {
       cellcolnr--;
@@ -1117,12 +1321,68 @@ void data_sheet_expat_callback_find_cell_start (void* callbackdata, const XML_Ch
         }
       }
     }
+
     //determing value type
-    if ((t = get_expat_attr_by_name(atts, X("t"))) != NULL && XML_Char_icmp(t, X("s")) == 0)
+    t = get_expat_attr_by_name(atts, X("t"));
+    if (t != NULL && XML_Char_icmp(t, X("s")) == 0) {
       data->cell_string_type = shared_string;
-    else
+    } else {
       data->cell_string_type = value_string;
-    //prepare empty value data
+    }
+
+    data->cell_type = cell_type_none;
+    data->number_fmt = NULL;
+
+    // determing cell data type
+    if (t != NULL) {
+      if (strcasecmp(t, "s") == 0 || strcasecmp(t, "str") == 0 || strcasecmp(t, "inlineStr") == 0) {
+        data->cell_type = cell_type_string;
+      } else if (strcasecmp(t, "b") == 0) {
+        data->cell_type = cell_type_boolean;
+      } else if (strcasecmp(t, "n") == 0) {
+        data->cell_type = cell_type_value;
+      } else {
+        data->cell_type = cell_type_none; // We should never get here!
+      }
+    } else {
+      //
+      // date field may look something like this (excel dates is a number of days from 1st jan 1900)
+      // <c r="C1" s="2">
+      //   <v>43537.51777806081</v>
+      // </c>
+      //
+      // s="2" is a number of format that described in styles.xml <numFmts>
+      // if related format has "y" or "m" or "d" or "h" or "s" then it's date/time format
+      //
+
+      const XML_Char* s;
+      s = get_expat_attr_by_name(atts, "s");
+
+      if (s == NULL) {
+        data->cell_type = cell_type_value;
+      } else {
+        int styleNum = atoi(s);
+        if (styleNum < data->handle->current_style_idx) {
+          struct xlsxio_cell_style *cell_style = data->handle->styles[styleNum];
+
+          int is_dateTime = cell_style->numberformat ? cell_style->numberformat->is_date : 0;
+
+          // builtin date formats are 14 - 22
+          if ((cell_style->numFmtId > 13 && cell_style->numFmtId < 23) || is_dateTime) {
+            data->cell_type = cell_type_date;
+          } else {
+            data->cell_type = cell_type_value;
+          }
+
+          // apply for dates and numbers
+          if (cell_style->numberformat) {
+            data->number_fmt = cell_style->numberformat->fmt;
+          }
+        }
+      }
+    }
+
+    //prepare empty value data, it will be changed in *_end callback
     free(data->celldata);
     data->celldata = NULL;
     data->celldatalen = 0;
@@ -1228,17 +1488,55 @@ void data_sheet_expat_callback_value_data (void* callbackdata, const XML_Char* b
   }
 }
 
-////////////////////////////////////////////////////////////////////////
+// extract number and date formats from styles.xml
+// save it in handle->numberformats and handle->date_formats
+void get_styles(xlsxioreader handle) {
+  struct styles_callback_data stylesCallbackData;
+  stylesCallbackData.look_for_styles = 0;
+  stylesCallbackData.look_for_numfmt = 0;
+  stylesCallbackData.handle = handle;
 
-struct xlsxio_read_sheet_struct {
-  xlsxioreader handle;
-  ZIPFILEENTRYTYPE* zipfile;
-  struct data_sheet_callback_data processcallbackdata;
-  size_t lastrownr;
-  size_t paddingrow;
-  size_t lastcolnr;
-  size_t paddingcol;
-};
+  handle->current_numberformat_idx = 0;
+  handle->current_style_idx = 0;
+  handle->numberformats_count = 0;
+  handle->styles_count = 0;
+
+  expat_process_zip_file(handle->zip, "xl/styles.xml", format_types_start_callback, format_types_end_callback, NULL, &stylesCallbackData, NULL);
+
+  // attach number_format struct to style struct
+  for (int si = 0; si < handle->current_style_idx; si++) {
+    if (handle->styles[si]->numFmtId) {
+      for(int fi = 0; fi < handle->current_numberformat_idx; fi++) {
+        if (handle->numberformats[fi]->numFmtId == handle->styles[si]->numFmtId) {
+          handle->styles[si]->numberformat = handle->numberformats[fi];
+        }
+      }
+    }
+  }
+}
+
+DLL_EXPORT_XLSXIO void xlsxioread_debug_internals(xlsxioreader handle) {
+  printf("\n");
+  printf("XLSXIO_READ DEBUG - %s\n", handle->filename);
+
+  printf("number_formats:\n");
+  for(int fi = 0; fi < handle->current_numberformat_idx; fi++) {
+    printf("  numFmtId = %d\tis_date = %d\tnumber_format = %s\n",
+      handle->numberformats[fi]->numFmtId, handle->numberformats[fi]->is_date, handle->numberformats[fi]->fmt);
+  }
+
+  printf("styles:\n");
+  struct xlsxio_number_format *numberformat;
+  for (int si = 0; si < handle->current_style_idx; si++) {
+    numberformat = handle->styles[si]->numberformat;
+    printf("  id = %d\tnumFmtId = %d\tis_date = %d\tnumber_format = %s\n",
+      si, handle->styles[si]->numFmtId, numberformat ? numberformat->is_date : 0, numberformat ? numberformat->fmt : NULL);
+  }
+
+  printf("\n");
+}
+
+////////////////////////////////////////////////////////////////////////
 
 DLL_EXPORT_XLSXIO int xlsxioread_process (xlsxioreader handle, const XLSXIOCHAR* sheetname, unsigned int flags, xlsxioread_process_cell_callback_fn cell_callback, xlsxioread_process_row_callback_fn row_callback, void* callbackdata)
 {
@@ -1272,13 +1570,13 @@ DLL_EXPORT_XLSXIO int xlsxioread_process (xlsxioreader handle, const XLSXIOCHAR*
   if (!(flags & XLSXIOREAD_NO_CALLBACK)) {
     //use callback mechanism
     struct data_sheet_callback_data processcallbackdata;
-    data_sheet_callback_data_initialize(&processcallbackdata, sharedstrings, flags, cell_callback, row_callback, callbackdata);
+    data_sheet_callback_data_initialize(handle, &processcallbackdata, sharedstrings, flags, cell_callback, row_callback, callbackdata);
     expat_process_zip_file(handle->zip, getrelscallbackdata.sheetfile, data_sheet_expat_callback_find_worksheet_start, NULL, NULL, &processcallbackdata, &processcallbackdata.xmlparser);
     data_sheet_callback_data_cleanup(&processcallbackdata);
   } else {
     //use simplified interface by suspending the XML parser when data is found
     xlsxioreadersheet sheethandle = (xlsxioreadersheet)callbackdata;
-    data_sheet_callback_data_initialize(&sheethandle->processcallbackdata, sharedstrings, flags, NULL, NULL, sheethandle);
+    data_sheet_callback_data_initialize(handle, &sheethandle->processcallbackdata, sharedstrings, flags, NULL, NULL, sheethandle);
     if ((sheethandle->zipfile = XML_Char_openzip(sheethandle->handle->zip, getrelscallbackdata.sheetfile, 0)) == NULL) {
       result = 1;
     }
@@ -1297,14 +1595,6 @@ DLL_EXPORT_XLSXIO int xlsxioread_process (xlsxioreader handle, const XLSXIOCHAR*
 }
 
 ////////////////////////////////////////////////////////////////////////
-
-struct xlsxio_read_sheetlist_struct {
-  xlsxioreader handle;
-  ZIPFILEENTRYTYPE* zipfile;
-  struct main_sheet_list_callback_data sheetcallbackdata;
-  XML_Parser xmlparser;
-  XML_Char* nextsheetname;
-};
 
 int xlsxioread_list_sheets_resumable_callback (const XLSXIOCHAR* name, void* callbackdata)
 {
@@ -1415,7 +1705,7 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_row (xlsxioreadersheet sheethandle)
     return 0;
   }
   sheethandle->lastcolnr = 0;
-  //when padding rows don't retrieve new data
+  // when padding rows don't retrieve new data
   if (sheethandle->paddingrow) {
     if (sheethandle->paddingrow < sheethandle->processcallbackdata.rownr) {
       return 3;
@@ -1425,23 +1715,31 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_row (xlsxioreadersheet sheethandle)
     }
   }
   sheethandle->paddingcol = 0;
-  //go to beginning of next row
+  // go to beginning of next row
   while ((status = expat_process_zip_file_resume(sheethandle->zipfile, sheethandle->processcallbackdata.xmlparser)) == XML_STATUS_SUSPENDED && sheethandle->processcallbackdata.colnr != 0) {
   }
   return (status == XML_STATUS_SUSPENDED ? 1 : 0);
 }
 
-DLL_EXPORT_XLSXIO XLSXIOCHAR* xlsxioread_sheet_next_cell (xlsxioreadersheet sheethandle)
+DLL_EXPORT_XLSXIO struct data_sheet_cell_data* xlsxioread_sheet_next_cell_struct (xlsxioreadersheet sheethandle)
 {
-  XML_Char* result;
-  if (!sheethandle)
+  if (!sheethandle) {
     return NULL;
-  //append empty column if needed
+  }
+
+  struct data_sheet_cell_data *res;
+  res = (struct data_sheet_cell_data *) malloc(sizeof(struct data_sheet_cell_data));
+  res->row_num = sheethandle->processcallbackdata.rownr;
+  res->col_num = sheethandle->lastcolnr;
+  res->number_fmt = sheethandle->processcallbackdata.number_fmt;
+  res->cell_type = sheethandle->processcallbackdata.cell_type;
+
+  // append empty column if needed
   if (sheethandle->paddingcol) {
     if (sheethandle->paddingcol > sheethandle->processcallbackdata.cols) {
       //last empty column added, finish row
       sheethandle->paddingcol = 0;
-      //when padding rows prepare for the next one
+      // when padding rows prepare for the next one
       if (sheethandle->paddingrow) {
         sheethandle->lastrownr++;
         sheethandle->paddingrow++;
@@ -1451,42 +1749,70 @@ DLL_EXPORT_XLSXIO XLSXIOCHAR* xlsxioread_sheet_next_cell (xlsxioreadersheet shee
       }
       return NULL;
     } else {
-      //add another empty column
+      // add another empty column
       sheethandle->paddingcol++;
-      return XML_Char_dup(X(""));
+      res->data = XML_Char_dup(X(""));
+      return res;
     }
   }
+
   //get value
-  if (!sheethandle->processcallbackdata.celldata)
-    if (expat_process_zip_file_resume(sheethandle->zipfile, sheethandle->processcallbackdata.xmlparser) != XML_STATUS_SUSPENDED)
+  if (!sheethandle->processcallbackdata.celldata) {
+    if (expat_process_zip_file_resume(sheethandle->zipfile, sheethandle->processcallbackdata.xmlparser) != XML_STATUS_SUSPENDED) {
       sheethandle->processcallbackdata.celldata = NULL;
-  //insert empty rows if needed
+      res->data = NULL;
+    }
+  }
+
+  // insert empty rows if needed
   if (!(sheethandle->processcallbackdata.flags & XLSXIOREAD_SKIP_EMPTY_ROWS) && sheethandle->lastrownr + 1 < sheethandle->processcallbackdata.rownr) {
     sheethandle->paddingrow = sheethandle->lastrownr + 1;
-    sheethandle->paddingcol = sheethandle->processcallbackdata.colnr*0 + 1;
-    return xlsxioread_sheet_next_cell(sheethandle);
+    sheethandle->paddingcol = sheethandle->processcallbackdata.colnr * 0 + 1;
+
+    return xlsxioread_sheet_next_cell_struct(sheethandle);
   }
+
   //insert empty column before if needed
   if (!(sheethandle->processcallbackdata.flags & XLSXIOREAD_SKIP_EMPTY_CELLS)) {
     if (sheethandle->lastcolnr + 1 < sheethandle->processcallbackdata.colnr) {
       sheethandle->lastcolnr++;
-      return XML_Char_dup(X(""));
+
+      res->data = XML_Char_dup(X(""));
+      return res;
     }
   }
-  result = sheethandle->processcallbackdata.celldata;
+
+  res->data = sheethandle->processcallbackdata.celldata;
   sheethandle->processcallbackdata.celldata = NULL;
+  res->number_fmt = sheethandle->processcallbackdata.number_fmt;
+  res->cell_type = sheethandle->processcallbackdata.cell_type;
+
   //end of row
-  if (!result) {
+  if (!res->data) {
     sheethandle->lastrownr = sheethandle->processcallbackdata.rownr;
-    //insert empty column at end if row if needed
-    if (!result && !(sheethandle->processcallbackdata.flags & XLSXIOREAD_SKIP_EMPTY_CELLS) && sheethandle->processcallbackdata.colnr < sheethandle->processcallbackdata.cols) {
+    //insert empty column at end of row if needed
+    if (!res->data && !(sheethandle->processcallbackdata.flags & XLSXIOREAD_SKIP_EMPTY_CELLS) && sheethandle->processcallbackdata.colnr < sheethandle->processcallbackdata.cols) {
       sheethandle->paddingcol = sheethandle->lastcolnr + 1;
-      return xlsxioread_sheet_next_cell(sheethandle);
+      sheethandle->processcallbackdata.colnr += 1;
+
+      return xlsxioread_sheet_next_cell_struct(sheethandle);
     }
   }
   sheethandle->lastcolnr = sheethandle->processcallbackdata.colnr;
-  return result;
+
+  return res->data ? res : NULL;
 }
+
+DLL_EXPORT_XLSXIO XLSXIOCHAR* xlsxioread_sheet_next_cell (xlsxioreadersheet sheethandle) {
+  struct data_sheet_cell_data* cell_struct = xlsxioread_sheet_next_cell_struct(sheethandle);
+
+  if (cell_struct) {
+    return cell_struct->data;
+  } else {
+    return NULL;
+  }
+}
+
 
 DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_cell_string (xlsxioreadersheet sheethandle, XLSXIOCHAR** pvalue)
 {

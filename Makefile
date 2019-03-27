@@ -31,8 +31,8 @@ SHARED_CFLAGS = -DBUILD_XLSXIO_DLL
 LIBS =
 LDFLAGS =
 ifeq ($(OS),Darwin)
-CFLAGS += -I/opt/local/include -I/opt/local/lib/libzip/include
-LDFLAGS += -L/opt/local/lib
+#CFLAGS += -I/opt/local/include -I/opt/local/lib/libzip/include
+#LDFLAGS += -L/opt/local/lib
 #CFLAGS += -arch i386 -arch x86_64
 #LDFLAGS += -arch i386 -arch x86_64
 STRIPFLAG =
@@ -66,8 +66,8 @@ CFLAGS += -DUSE_MINIZIP
 endif
 
 XLSXIOREAD_OBJ = lib/xlsxio_read.o lib/xlsxio_read_sharedstrings.o
-XLSXIOREAD_LDFLAGS = $(ZIPLIB_LDFLAGS) -lexpat
-XLSXIOREADW_LDFLAGS = $(ZIPLIB_LDFLAGS) -lexpatw
+XLSXIOREAD_LDFLAGS += $(ZIPLIB_LDFLAGS) -lexpat
+XLSXIOREADW_LDFLAGS += $(ZIPLIB_LDFLAGS) -lexpatw
 XLSXIOREAD_SHARED_LDFLAGS =
 XLSXIOWRITE_OBJ = lib/xlsxio_write.o
 XLSXIOWRITE_LDFLAGS = $(ZIPLIB_LDFLAGS)

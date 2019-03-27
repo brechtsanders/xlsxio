@@ -54,11 +54,11 @@ THE SOFTWARE.
 #include "xlsxio_read.h"
 
 #if !defined(XML_UNICODE_WCHAR_T) && !defined(XML_UNICODE)
-//UTF-8 version
+// UTF-8 version
 #define X(s) s
 #define XML_Char_printf printf
 #else
-//UTF-16 version
+// UTF-16 version
 #define X(s) L##s
 #define XML_Char_printf wprintf
 #endif
@@ -68,7 +68,7 @@ const char* filename = "example.xlsx";
 int main (int argc, char* argv[])
 {
 #ifdef _WIN32
-  //switch Windows console to UTF-8
+  // switch Windows console to UTF-8
   SetConsoleOutputCP(CP_UTF8);
 #endif
 
@@ -81,7 +81,7 @@ int main (int argc, char* argv[])
 
 #if defined(PROCESS_FROM_MEMORY)
   {
-    //load file in memory
+    // load file in memory
     int filehandle;
     char* buf = NULL;
     size_t buflen = 0;
@@ -106,7 +106,7 @@ int main (int argc, char* argv[])
     }
   }
 #elif defined(PROCESS_FROM_FILEHANDLE)
-  //open .xlsx file for reading
+  // open .xlsx file for reading
   int filehandle;
   if ((filehandle = open(filename, O_RDONLY | O_BINARY, 0)) == -1) {
     fprintf(stderr, "Error opening .xlsx file\n");
@@ -117,14 +117,14 @@ int main (int argc, char* argv[])
     return 1;
   }
 #else
-  //open .xlsx file for reading
+  // open .xlsx file for reading
   if ((xlsxioread = xlsxioread_open(filename)) == NULL) {
     fprintf(stderr, "Error opening .xlsx file\n");
     return 1;
   }
 #endif
 
-  //list available sheets
+  // list available sheets
   xlsxioreadersheetlist sheetlist;
   const XLSXIOCHAR* sheetname;
   printf("Available sheets:\n");
@@ -134,21 +134,27 @@ int main (int argc, char* argv[])
     }
     xlsxioread_sheetlist_close(sheetlist);
   }
+  XML_Char_printf(X("\n"));
 
-  //read values from first sheet
-  XLSXIOCHAR* value;
+  // read values from first sheet
+  xlsxioread_cell value;
+  const char *typeNames[] = { "none", "value", "boolean", "string", "date" };
+
   printf("Contents of first sheet:\n");
   xlsxioreadersheet sheet = xlsxioread_sheet_open(xlsxioread, NULL, XLSXIOREAD_SKIP_EMPTY_ROWS);
   while (xlsxioread_sheet_next_row(sheet)) {
-    while ((value = xlsxioread_sheet_next_cell(sheet)) != NULL) {
-      XML_Char_printf(X("%s\t"), value);
+    while ((value = xlsxioread_sheet_next_cell_struct(sheet)) != NULL) {
+      XML_Char_printf(X("%s\t"), value->data);
+      // print with row num, cell num and type
+      //XML_Char_printf("cell %zu %zu %s %s %s\n", value->row_num, value->col_num,
+      //  typeNames[value->cell_type], value->number_fmt, value->data);
       free(value);
     }
     printf("\n");
   }
   xlsxioread_sheet_close(sheet);
 
-  //clean up
+  // clean up
   xlsxioread_close(xlsxioread);
   return 0;
 }

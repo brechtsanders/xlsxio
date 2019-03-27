@@ -1,0 +1,24 @@
+language: c
+
+os:
+  - osx
+  - linux
+  - windows
+
+# linux distro
+dist: xenial
+
+addons:
+  apt:
+    packages: ["libminizip-dev"]
+  homebrew:
+    packages: ["minizip"]
+
+script:
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then ./build/ci_windows_prepare; fi
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then export XLSXIO_CMAKE_ARGS="-DMINIZIP_DIR:PATH=$(pwd)/minizip-2.8.4/build"; fi
+  - cmake . $XLSXIO_CMAKE_ARGS
+  - cmake --build .
+  - ./example_xlsxio_write
+  - ls -lah example.xlsx
+  - ./example_xlsxio_read

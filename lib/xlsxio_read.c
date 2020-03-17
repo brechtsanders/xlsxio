@@ -2,8 +2,8 @@
 #include "xlsxio_read_sharedstrings.h"
 #include "xlsxio_read.h"
 #include "xlsxio_version.h"
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
 #include <expat.h>
@@ -719,11 +719,11 @@ unzGetGlobalInfo(data->zip, &zipglobalinfo);
 }
 
 //list file names by content type
-int iterate_files_by_contenttype (ZIPFILETYPE* zip, const XML_Char* contenttype, contenttype_file_callback_fn filecallbackfn, void* filecallbackdata, XML_Parser* xmlparser)
+int iterate_files_by_contenttype (ZIPFILETYPE* zip, contenttype_file_callback_fn filecallbackfn, void* filecallbackdata, XML_Parser* xmlparser)
 {
   struct iterate_files_by_contenttype_callback_data callbackdata = {
     .zip = zip,
-    .contenttype = contenttype,
+    .contenttype = WORKBOOK_FORMAT_SPEC_XLSX,
     .filecallbackfn = filecallbackfn,
     .filecallbackdata = filecallbackdata
   };
@@ -782,7 +782,7 @@ DLL_EXPORT_XLSXIO void xlsxioread_list_sheets (xlsxioreader handle, xlsxioread_l
     .callback = callback,
     .callbackdata = callbackdata
   };
-  iterate_files_by_contenttype(handle->zip, WORKBOOK_FORMAT_SPEC_XLSX, xlsxioread_list_sheets_callback, &sheetcallbackdata, &sheetcallbackdata.xmlparser);
+  iterate_files_by_contenttype(handle->zip, xlsxioread_list_sheets_callback, &sheetcallbackdata, &sheetcallbackdata.xmlparser);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1264,7 +1264,7 @@ DLL_EXPORT_XLSXIO int xlsxioread_process (xlsxioreader handle, const XLSXIOCHAR*
     .sharedstringsfile = NULL,
     .stylesfile = NULL
   };
-  iterate_files_by_contenttype(handle->zip, WORKBOOK_FORMAT_SPEC_XLSX, main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
+  iterate_files_by_contenttype(handle->zip, main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
 
   //process shared strings
   struct sharedstringlist* sharedstrings = NULL;
@@ -1337,7 +1337,7 @@ DLL_EXPORT_XLSXIO xlsxioreadersheetlist xlsxioread_sheetlist_open (xlsxioreader 
 {
   //determine main sheet name
   XML_Char* mainsheetfile = NULL;
-  iterate_files_by_contenttype(handle->zip, WORKBOOK_FORMAT_SPEC_XLSX, xlsxioread_find_main_sheet_file_callback, &mainsheetfile, NULL);
+  iterate_files_by_contenttype(handle->zip, xlsxioread_find_main_sheet_file_callback, &mainsheetfile, NULL);
   if (!mainsheetfile)
     return NULL;
   //process contents of main sheet

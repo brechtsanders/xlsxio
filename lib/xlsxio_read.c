@@ -50,6 +50,8 @@
 #define PARSE_BUFFER_SIZE 256
 //#define PARSE_BUFFER_SIZE 4
 
+XML_Char const* WORKBOOK_FORMAT_SPEC_XLSX = X("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml");
+
 #if !defined(XML_UNICODE_WCHAR_T) && !defined(XML_UNICODE)
 
 //UTF-8 version
@@ -780,7 +782,7 @@ DLL_EXPORT_XLSXIO void xlsxioread_list_sheets (xlsxioreader handle, xlsxioread_l
     .callback = callback,
     .callbackdata = callbackdata
   };
-  iterate_files_by_contenttype(handle->zip, X("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"), xlsxioread_list_sheets_callback, &sheetcallbackdata, &sheetcallbackdata.xmlparser);
+  iterate_files_by_contenttype(handle->zip, WORKBOOK_FORMAT_SPEC_XLSX, xlsxioread_list_sheets_callback, &sheetcallbackdata, &sheetcallbackdata.xmlparser);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1262,7 +1264,7 @@ DLL_EXPORT_XLSXIO int xlsxioread_process (xlsxioreader handle, const XLSXIOCHAR*
     .sharedstringsfile = NULL,
     .stylesfile = NULL
   };
-  iterate_files_by_contenttype(handle->zip, X("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"), main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
+  iterate_files_by_contenttype(handle->zip, WORKBOOK_FORMAT_SPEC_XLSX, main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
 
   //process shared strings
   struct sharedstringlist* sharedstrings = NULL;
@@ -1335,7 +1337,7 @@ DLL_EXPORT_XLSXIO xlsxioreadersheetlist xlsxioread_sheetlist_open (xlsxioreader 
 {
   //determine main sheet name
   XML_Char* mainsheetfile = NULL;
-  iterate_files_by_contenttype(handle->zip, X("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"), xlsxioread_find_main_sheet_file_callback, &mainsheetfile, NULL);
+  iterate_files_by_contenttype(handle->zip, WORKBOOK_FORMAT_SPEC_XLSX, xlsxioread_find_main_sheet_file_callback, &mainsheetfile, NULL);
   if (!mainsheetfile)
     return NULL;
   //process contents of main sheet

@@ -50,8 +50,6 @@
 #define PARSE_BUFFER_SIZE 256
 //#define PARSE_BUFFER_SIZE 4
 
-XML_Char const* WORKBOOK_FORMAT_SPEC_XLSX = X("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml");
-
 #if !defined(XML_UNICODE_WCHAR_T) && !defined(XML_UNICODE)
 
 //UTF-8 version
@@ -645,14 +643,27 @@ DLL_EXPORT_XLSXIO void xlsxioread_close (xlsxioreader handle)
 ////////////////////////////////////////////////////////////////////////
 
 //callback function definition for use with iterate_files_by_contenttype
-typedef void (*contenttype_file_callback_fn)(ZIPFILETYPE* zip, const XML_Char* filename, const XML_Char* contenttype, void* callbackdata);
+typedef void (*contenttype_file_callback_fn)(ZIPFILETYPE* zip, const XML_Char* filename, void* callbackdata);
 
 struct iterate_files_by_contenttype_callback_data {
   ZIPFILETYPE* zip;
-  const XML_Char* contenttype;
+  const XML_Char* contenttype_xlsx;
+  const XML_Char* contenttype_xltx;
+  const XML_Char* contenttype_xlsm;
+  const XML_Char* contenttype_xltm;
   contenttype_file_callback_fn filecallbackfn;
   void* filecallbackdata;
 };
+
+static int has_workbook_content(XML_Char** atts, struct iterate_files_by_contenttype_callback_data const* content_data)
+{
+  const XML_Char* contenttype;
+  return (contenttype = get_expat_attr_by_name(atts, X("ContentType"))) != NULL &&
+    (XML_Char_icmp(contenttype, content_data->contenttype_xlsx) == 0 ||
+     XML_Char_icmp(contenttype, content_data->contenttype_xltx) == 0 ||
+     XML_Char_icmp(contenttype, content_data->contenttype_xlsm) == 0 ||
+     XML_Char_icmp(contenttype, content_data->contenttype_xltm) == 0);
+}
 
 //expat callback function for element start used by iterate_files_by_contenttype
 void iterate_files_by_contenttype_expat_callback_element_start (void* callbackdata, const XML_Char* name, const XML_Char** atts)
@@ -660,20 +671,18 @@ void iterate_files_by_contenttype_expat_callback_element_start (void* callbackda
   struct iterate_files_by_contenttype_callback_data* data = (struct iterate_files_by_contenttype_callback_data*)callbackdata;
   if (XML_Char_icmp_ins(name, X("Override")) == 0) {
     //explicitly specified file
-    const XML_Char* contenttype;
     const XML_Char* partname;
-    if ((contenttype = get_expat_attr_by_name(atts, X("ContentType"))) != NULL && XML_Char_icmp(contenttype, data->contenttype) == 0) {
+    if (has_workbook_content(atts, data)) {
       if ((partname = get_expat_attr_by_name(atts, X("PartName"))) != NULL) {
         if (partname[0] == '/')
           partname++;
-        data->filecallbackfn(data->zip, partname, contenttype, data->filecallbackdata);
+        data->filecallbackfn(data->zip, partname, data->filecallbackdata);
       }
     }
   } else if (XML_Char_icmp_ins(name, X("Default")) == 0) {
     //by extension
-    const XML_Char* contenttype;
     const XML_Char* extension;
-    if ((contenttype = get_expat_attr_by_name(atts, X("ContentType"))) != NULL && XML_Char_icmp(contenttype, data->contenttype) == 0) {
+    if (has_workbook_content(atts, data)) {
       if ((extension = get_expat_attr_by_name(atts, X("Extension"))) != NULL) {
         XML_Char* filename;
         size_t filenamelen;
@@ -706,7 +715,7 @@ unzGetGlobalInfo(data->zip, &zipglobalinfo);
 #endif
           filenamelen = XML_Char_len(filename);
           if (filenamelen > extensionlen && filename[filenamelen - extensionlen - 1] == '.' && XML_Char_icmp(filename + filenamelen - extensionlen, extension) == 0) {
-            data->filecallbackfn(data->zip, filename, contenttype, data->filecallbackdata);
+            data->filecallbackfn(data->zip, filename, data->filecallbackdata);
           }
           free(filename);
         }
@@ -723,7 +732,10 @@ int iterate_files_by_contenttype (ZIPFILETYPE* zip, contenttype_file_callback_fn
 {
   struct iterate_files_by_contenttype_callback_data callbackdata = {
     .zip = zip,
-    .contenttype = WORKBOOK_FORMAT_SPEC_XLSX,
+    .contenttype_xlsx = X("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"),
+    .contenttype_xltx = X("application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml"),
+    .contenttype_xlsm = X("application/vnd.ms-excel.sheet.macroEnabled.main+xml"),
+    .contenttype_xltm = X("application/vnd.ms-excel.template.macroEnabled.main+xml"),
     .filecallbackfn = filecallbackfn,
     .filecallbackdata = filecallbackdata
   };
@@ -765,7 +777,7 @@ void main_sheet_list_expat_callback_element_start (void* callbackdata, const XML
 }
 
 //process contents each sheet listed in main sheet
-void xlsxioread_list_sheets_callback (ZIPFILETYPE* zip, const XML_Char* filename, const XML_Char* contenttype, void* callbackdata)
+void xlsxioread_list_sheets_callback (ZIPFILETYPE* zip, const XML_Char* filename, void* callbackdata)
 {
   //get sheet information from file
   expat_process_zip_file(zip, filename, main_sheet_list_expat_callback_element_start, NULL, NULL, callbackdata, &((struct main_sheet_list_callback_data*)callbackdata)->xmlparser);
@@ -848,7 +860,7 @@ void main_sheet_get_sheetfile_expat_callback_element_start (void* callbackdata, 
 }
 
 //determine the file name for a specified sheet name
-void main_sheet_get_sheetfile_callback (ZIPFILETYPE* zip, const XML_Char* filename, const XML_Char* contenttype, void* callbackdata)
+void main_sheet_get_sheetfile_callback (ZIPFILETYPE* zip, const XML_Char* filename, void* callbackdata)
 {
   struct main_sheet_get_rels_callback_data* data = (struct main_sheet_get_rels_callback_data*)callbackdata;
   if (!data->sheetrelid) {
@@ -1327,7 +1339,7 @@ int xlsxioread_list_sheets_resumable_callback (const XLSXIOCHAR* name, void* cal
   return 0;
 }
 
-void xlsxioread_find_main_sheet_file_callback (ZIPFILETYPE* zip, const XML_Char* filename, const XML_Char* contenttype, void* callbackdata)
+void xlsxioread_find_main_sheet_file_callback (ZIPFILETYPE* zip, const XML_Char* filename, void* callbackdata)
 {
   XML_Char** data = (XML_Char**)callbackdata;
   *data = XML_Char_dup(filename);

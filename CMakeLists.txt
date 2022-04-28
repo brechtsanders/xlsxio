@@ -15,6 +15,12 @@ UNSET(DUMMYVAR)
 UNSET(VERFILE)
 MESSAGE(STATUS "XLSX I/O library version: ${XLSXIO_VER}")
 
+find_path(CONANBUILDINFO NAMES conanbuildinfo.cmake NO_DEFAULT_PATH PATHS ${CMAKE_BINARY_DIR})
+if (CONANBUILDINFO)
+    include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    conan_basic_setup()
+endif()
+
 # parameters
 OPTION(BUILD_STATIC "Build static libraries" ON)
 OPTION(BUILD_SHARED "Build shared libraries" ON)

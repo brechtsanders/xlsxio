@@ -212,6 +212,19 @@ for (i = 0; i < 1000; i++) {
 xlsxiowrite_close(handle);
 ```
 
+### Conan Package
+
+Build conan package:
+
+```bash
+cd xlsxio
+conan create . --build=missing <user>/<channel>
+```
+
+You can specify `settings` with `-s` and package options with `-o`. 
+[Read about Conan](https://docs.conan.io/en/latest/reference/commands/creator/create.html).
+
+
 License
 -------
 XLSX I/O is released under the terms of the MIT License (MIT), see LICENSE.txt.

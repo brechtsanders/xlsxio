@@ -1,3 +1,9 @@
+0.2.32
+
+2022-04-15  Brecht Sanders  https://github.com/brechtsanders/
+
+  * fixed crash issue when sheet name is NULL (#109)
+
 0.2.31
 
 2022-02-16  Brecht Sanders  https://github.com/brechtsanders/

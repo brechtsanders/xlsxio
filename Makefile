@@ -24,17 +24,17 @@ BINEXT =
 SOEXT = .so
 endif
 INCS = -Iinclude -Ilib
-CFLAGS = $(INCS) -Os
-CPPFLAGS = $(INCS) -Os
+CFLAGS = -O3
+override CFLAGS += $(INCS)
 STATIC_CFLAGS = -DBUILD_XLSXIO_STATIC
 SHARED_CFLAGS = -DBUILD_XLSXIO_DLL
 LIBS =
 LDFLAGS =
 ifeq ($(OS),Darwin)
-CFLAGS += -I/opt/local/include -I/opt/local/lib/libzip/include
-LDFLAGS += -L/opt/local/lib
-#CFLAGS += -arch i386 -arch x86_64
-#LDFLAGS += -arch i386 -arch x86_64
+override CFLAGS += -I/opt/local/include -I/opt/local/lib/libzip/include
+override LDFLAGS += -L/opt/local/lib
+#override CFLAGS += -arch i386 -arch x86_64
+#override LDFLAGS += -arch i386 -arch x86_64
 STRIPFLAG =
 else
 STRIPFLAG = -s
@@ -58,11 +58,11 @@ endif
 ifdef WITH_LIBZIP
 ZIPLIB_LDFLAGS = -lzip
 ZIPLIB_DEPS_LDFLAGS = -Wl,--as-needed -lz -lbz2 -lcrypto -lgdi32
-CFLAGS += -DUSE_LIBZIP
+override CFLAGS += -DUSE_LIBZIP
 else
 ZIPLIB_LDFLAGS = -lminizip
 ZIPLIB_DEPS_LDFLAGS = -Wl,--as-needed -lz
-CFLAGS += -DUSE_MINIZIP
+override CFLAGS += -DUSE_MINIZIP
 endif
 
 XLSXIOREAD_OBJ = lib/xlsxio_read.o lib/xlsxio_read_sharedstrings.o
@@ -73,7 +73,7 @@ XLSXIOWRITE_OBJ = lib/xlsxio_write.o
 XLSXIOWRITE_LDFLAGS = $(ZIPLIB_LDFLAGS)
 XLSXIOWRITE_SHARED_LDFLAGS =
 ifneq ($(OS),Windows_NT)
-SHARED_CFLAGS += -fPIC
+override SHARED_CFLAGS += -fPIC
 endif
 ifeq ($(OS),Windows_NT)
 XLSXIOREAD_SHARED_LDFLAGS += -Wl,--out-implib,$@$(LIBEXT) -Wl,--compat-implib -Wl,--output-def,$(@:%.dll=%.def)
@@ -92,7 +92,7 @@ ifdef STATICDLL
 ifeq ($(OS),Windows_NT)
 # lines below to compile Windows DLLs with no dependancies
 ifdef WITH_LIBZIP
-CFLAGS += -DZIP_STATIC
+override CFLAGS += -DZIP_STATIC
 endif
 XLSXIOREAD_LDFLAGS += -static $(ZIPLIB_DEPS_LDFLAGS)
 XLSXIOREADW_LDFLAGS += -static $(ZIPLIB_DEPS_LDFLAGS)
@@ -111,7 +111,7 @@ EXAMPLES_BIN += example_xlsxio_readw$(BINEXT)
 endif
 
 COMMON_PACKAGE_FILES = README.md LICENSE.txt Changelog.txt
-SOURCE_PACKAGE_FILES = $(COMMON_PACKAGE_FILES) Makefile CMakeLists.txt CMake/ doc/Doxyfile include/*.h lib/*.c lib/*.h src/*.c examples/*.c build/*.cbp
+SOURCE_PACKAGE_FILES = $(COMMON_PACKAGE_FILES) Makefile CMakeLists.txt CMake/ *.in doc/Doxyfile include/*.h lib/*.c lib/*.h src/*.c examples/*.c build/*.cbp
 
 default: all
 

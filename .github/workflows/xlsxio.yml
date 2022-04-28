@@ -1,0 +1,121 @@
+name: GitHub-CI for xlsxio
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false          # if a job fails don't abort other jobs
+      matrix:
+        config:
+          - {
+              name: "Windows 64-bit (gcc)",
+              os: windows-latest,
+              shell: "msys2 {0}",
+              msystem: MINGW64,
+              arch: x86_64,
+              cc: x86_64-w64-mingw32-gcc.exe,
+              cxx: x86_64-w64-mingw32-g++.exe,
+              makeargs: "WITH_LIBZIP=1"
+            }
+          - {
+              name: "Windows 32-bit (gcc)",
+              os: windows-latest,
+              shell: "msys2 {0}",
+              msystem: MINGW32,
+              arch: i686,
+              cc: i686-w64-mingw32-gcc.exe,
+              cxx: i686-w64-mingw32-g++.exe,
+              makeargs: "WITH_LIBZIP=1"
+            }
+          - {
+              name: "Ubuntu Linux (clang)",
+              os: ubuntu-latest,
+              shell: bash,
+              arch: x86_64,
+              cc: clang,
+              cxx: clang++,
+              makeargs: "WIDE=1"
+            }
+          - {
+              name: "macOS (clang)",
+              os: macos-latest,
+              shell: bash,
+              arch: x86_64,
+              cc: clang,
+              cxx: clang++,
+              makeargs: ""
+            }
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.config.shell }}
+    env:
+      CC: ${{ matrix.config.cc }}
+      CXX: ${{ matrix.config.cxx }}
+
+    steps:
+    - if: matrix.config.os == 'windows-latest'
+      name: Install build dependencies (Windows/MSYS)
+      uses: msys2/setup-msys2@v2
+      with:
+        update: false
+        msystem: ${{ matrix.config.msystem }}
+        install: >-
+          git
+          make
+          zip
+          mingw-w64-${{ matrix.config.arch }}-toolchain
+          mingw-w64-${{ matrix.config.arch }}-ninja
+          mingw-w64-${{ matrix.config.arch }}-cmake
+          mingw-w64-${{ matrix.config.arch }}-expat
+          mingw-w64-${{ matrix.config.arch }}-minizip-git
+          mingw-w64-${{ matrix.config.arch }}-libzip
+    - if: matrix.config.os == 'ubuntu-latest'
+      name: Install build dependencies (Linux)
+      run: |
+        sudo apt-get install \
+         zip \
+         cmake \
+         ninja-build \
+         libexpat1-dev \
+         libminizip-dev \
+         libzip-dev
+    - if: matrix.config.os == 'macos-latest'
+      name: Install build dependencies (macOS)
+      run: |
+        brew install \
+         zip \
+         ninja \
+         expat \
+         minizip \
+         libzip
+    - uses: actions/checkout@v1
+    - name: Build
+      run: |
+        PKG_CONFIG_PATH=$PWD/deps/lib/pkgconfig:/usr/local/opt/libarchive/lib/pkgconfig:$PKG_CONFIG_PATH \
+         make install \
+         PREFIX=$PWD/release \
+         ${{ matrix.config.makeargs }} \
+         CFLAGS="-O3 -I$PWD/deps/include -I/usr/local/opt/libarchive/include" \
+         LDFLAGS="-L$PWD/deps/lib -L/usr/local/opt/libarchive/lib"
+    #- if: matrix.config.os == 'windows-latest'
+    #  name: Build package
+    #  run: |
+    #    PKG_CONFIG_PATH=$PWD/deps/lib/pkgconfig:/usr/local/opt/libarchive/lib/pkgconfig:$PKG_CONFIG_PATH \
+    #     make binarypackage \
+    #     STATIC=1 \
+    #     CFLAGS="-I$PWD/deps/include -I/usr/local/opt/libarchive/include" \
+    #     LDFLAGS="-L$PWD/deps/lib -L/usr/local/opt/libarchive/lib"
+    #    mv xlsxio-*.zip xlsxio-${{ matrix.config.arch }}.zip
+    #- if: matrix.config.os == 'windows-latest'
+    #  name: Upload package
+    #  uses: actions/upload-artifact@v1
+    #  with:
+    #    path: ./release
+    #    name: xlsxio-${{ matrix.config.arch }}.zip

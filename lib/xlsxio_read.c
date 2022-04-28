@@ -249,8 +249,14 @@ enum XML_Status expat_process_zip_file_resume (ZIPFILEENTRYTYPE* zipfile, XML_Pa
 #else
 int XML_Char_icmp_ins (const XML_Char* value, const XML_Char* name)
 {
-  size_t valuelen = XML_Char_len(value);
-  size_t namelen = XML_Char_len(name);
+  size_t valuelen;
+  size_t namelen;
+  if (!value)
+    return (!name ? 0 : -1);
+  if (!name)
+    return -1;
+  valuelen = XML_Char_len(value);
+  namelen = XML_Char_len(name);
   if (valuelen == namelen)
     return XML_Char_icmp(value, name);
   if (valuelen > namelen) {
@@ -809,8 +815,8 @@ void main_sheet_get_relid_expat_callback_element_start (void* callbackdata, cons
 {
   struct main_sheet_get_rels_callback_data* data = (struct main_sheet_get_rels_callback_data*)callbackdata;
   if (XML_Char_icmp_ins(name, X("sheet")) == 0) {
-    const XML_Char* sheetname = get_expat_attr_by_name(atts, X("name"));
-    if (!data->sheetname || XML_Char_icmp(sheetname, data->sheetname) == 0) {
+    const XML_Char* sheetname;
+    if ((sheetname = get_expat_attr_by_name(atts, X("name"))) != NULL && (!data->sheetname || XML_Char_icmp(sheetname, data->sheetname) == 0)) {
       const XML_Char* relid = get_expat_attr_by_name(atts, X("r:id"));
       if (relid && *relid) {
         data->sheetrelid = XML_Char_dup(relid);

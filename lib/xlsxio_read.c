@@ -8,8 +8,12 @@
 #include <string.h>
 #include <expat.h>
 
-#ifdef USE_MINIZIP
-#  include <minizip/unzip.h>
+#if (defined(USE_MINIZIP)) || (defined(USE_MINIZIP_NG))
+#  ifdef USE_MINIZIP_NG
+#    include <mz_compat.h>
+#  else
+#    include <minizip/unzip.h>
+#  endif
 #  define ZIPFILETYPE unzFile
 #  define ZIPFILEENTRYTYPE unzFile
 #  if defined(_MSC_VER)
@@ -21,15 +25,15 @@
 #    define IOSIZETYPE ssize_t
 #    define IOFN(fn) fn
 #  endif
-/*
-#  if !defined(Z_DEFLATED) && defined(MZ_COMPRESS_METHOD_DEFLATE) // support minizip2 which defines MZ_COMPRESS_METHOD_DEFLATE instead of Z_DEFLATED
+
+#  if defined(MZ_COMPRESS_METHOD_DEFLATE) // support minizip2 which defines MZ_COMPRESS_METHOD_DEFLATE instead of Z_DEFLATED
 #    ifndef ZCALLBACK
 #      define ZCALLBACK
 #    endif
 #    define voidpf void*
 #    define uLong  unsigned long
 #  endif
-*/
+
 #else
 #  if (defined(STATIC) || defined(BUILD_XLSXIO_STATIC) || defined(BUILD_XLSXIO_STATIC_DLL) || (defined(BUILD_XLSXIO) && !defined(BUILD_XLSXIO_DLL) && !defined(BUILD_XLSXIO_SHARED))) && !defined(ZIP_STATIC)
 #    define ZIP_STATIC

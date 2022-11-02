@@ -15,7 +15,7 @@
 #  ifdef USE_MINIZIP_NG
 #    include <mz_compat.h>
 #  else
-#    include <minizip/unzip.h>
+#    include <minizip/zip.h>
 #  endif
 #  if !defined(Z_DEFLATED) && defined(MZ_COMPRESS_METHOD_DEFLATE) /* support minizip2 which defines MZ_COMPRESS_METHOD_DEFLATE instead of Z_DEFLATED */
 #    define Z_DEFLATED MZ_COMPRESS_METHOD_DEFLATE

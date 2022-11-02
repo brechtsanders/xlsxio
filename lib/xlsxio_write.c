@@ -11,8 +11,12 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
-#ifdef USE_MINIZIP
-#  include <minizip/zip.h>
+#if defined(USE_MINIZIP) || defined(USE_MINIZIP_NG)
+#  ifdef USE_MINIZIP_NG
+#    include <mz_compat.h>
+#  else
+#    include <minizip/zip.h>
+#  endif
 #  if !defined(Z_DEFLATED) && defined(MZ_COMPRESS_METHOD_DEFLATE) /* support minizip2 which defines MZ_COMPRESS_METHOD_DEFLATE instead of Z_DEFLATED */
 #    define Z_DEFLATED MZ_COMPRESS_METHOD_DEFLATE
 #  endif

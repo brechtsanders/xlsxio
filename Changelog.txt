@@ -1,8 +1,14 @@
+0.2.34
+
+2022-11-02  Brecht Sanders  https://github.com/brechtsanders/
+
+  * PR from captaingroove tp add minizip-ng support (#115)
+
 0.2.33
 
 2022-07-05  Brecht Sanders  https://github.com/brechtsanders/
 
-  * PR from JackBoosY to export CMake targets automaticly (to cmake folder under install path)
+  * PR from JackBoosY to export CMake targets automaticly (to cmake folder under install path) (#105)
 
 0.2.32
 

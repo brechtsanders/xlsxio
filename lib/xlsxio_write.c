@@ -11,7 +11,7 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
-#if (defined(USE_MINIZIP)) || (defined(USE_MINIZIP_NG))
+#if defined(USE_MINIZIP) || defined(USE_MINIZIP_NG)
 #  ifdef USE_MINIZIP_NG
 #    include <mz_compat.h>
 #  else
@@ -20,9 +20,6 @@
 #  if !defined(Z_DEFLATED) && defined(MZ_COMPRESS_METHOD_DEFLATE) /* support minizip2 which defines MZ_COMPRESS_METHOD_DEFLATE instead of Z_DEFLATED */
 #    define Z_DEFLATED MZ_COMPRESS_METHOD_DEFLATE
 #  endif
-#  define ZIPFILETYPE zipFile
-#elif USE_MINIZIP_NG
-#  include <mz_compat.h>
 #  define ZIPFILETYPE zipFile
 #else
 #  if (defined(STATIC) || defined(BUILD_XLSXIO_STATIC) || defined(BUILD_XLSXIO_STATIC_DLL) || (defined(BUILD_XLSXIO) && !defined(BUILD_XLSXIO_DLL) && !defined(BUILD_XLSXIO_SHARED))) && !defined(ZIP_STATIC)

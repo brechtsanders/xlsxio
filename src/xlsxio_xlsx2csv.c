@@ -31,6 +31,8 @@ struct xlsx_data {
   xlsxioreader xlsxioread;
   FILE* dst;
   int nobom;
+  int numbers;
+  int file_count;
   const char* newline;
   char separator;
   char quote;
@@ -79,10 +81,25 @@ int xlsx_list_sheets_callback (const char* name, void* callbackdata)
   if ((filename = (char*)malloc(strlen(data->filename) + strlen(name) + 6)) == NULL ){
     fprintf(stderr, "Memory allocation error\n");
   } else {
+
+	char str[16];
+
+      if (data->numbers)
+		{
+		   //Vs writing the sheetname, this will write the number of the sheet !
+			snprintf(str, sizeof(str), "%d", data->file_count++);
+		}		
+		
+		
+
     //determine export filename
     strcpy(filename, data->filename);
     strcat(filename, ".");
-    strcat(filename, name);
+      if (data->numbers)
+	    strcat(filename, str);
+		else
+	    strcat(filename, name);
+
     strcat(filename, ".csv");
     //display status
     printf("Sheet found: %s, exporting to: %s\n", name, filename);
@@ -113,6 +130,7 @@ void show_help ()
     "  -s separator\tspecify separator to use (default is comma)\n"
     "  -b          \tdon't write UTF-8 BOM signature\n"
     "  -n          \tuse UNIX style line breaks\n"
+    "  -u          \toutput sheet number instead of sheet name\n"
     "  xlsxfile    \tpath to .xlsx file (multiple may be specified)\n"
     "Description:\n"
     "Converts all sheets in all specified .xlsx files to individual CSV (Comma Separated Values) files.\n"
@@ -128,6 +146,8 @@ int main (int argc, char* argv[])
   xlsxioreader xlsxioread;
   struct xlsx_data sheetdata = {
     .nobom = 0,
+    .numbers = 0,
+    .file_count = 1,
     .newline = "\r\n",
     .separator = ',',
     .quote = '"',
@@ -157,6 +177,9 @@ int main (int argc, char* argv[])
           continue;
         case 'b' :
           sheetdata.nobom = 1;
+          continue;
+        case 'u' :
+          sheetdata.numbers = 1;
           continue;
         case 'n' :
           sheetdata.newline = "\n";

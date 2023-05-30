@@ -1410,6 +1410,7 @@ DLL_EXPORT_XLSXIO xlsxioreadersheetlist xlsxioread_sheetlist_open (xlsxioreader 
   result->sheetcallbackdata.xmlparser = NULL;
   result->sheetcallbackdata.callback = xlsxioread_list_sheets_resumable_callback;
   result->sheetcallbackdata.callbackdata = result;
+  result->xmlparser = NULL;
   result->nextsheetname = NULL;
   if ((result->zipfile = XML_Char_openzip(handle->zip, mainsheetfile, 0)) != NULL) {
     result->xmlparser = expat_process_zip_file_suspendable(result->zipfile, main_sheet_list_expat_callback_element_start, NULL, NULL, &result->sheetcallbackdata);

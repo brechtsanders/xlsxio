@@ -1,8 +1,14 @@
+0.2.35
+
+2023-05-30  Brecht Sanders  https://github.com/brechtsanders/
+
+  * fix free of uninitialized pointer in xlsxioread_sheetlist_close() (#121)
+
 0.2.34
 
 2022-11-02  Brecht Sanders  https://github.com/brechtsanders/
 
-  * PR from captaingroove tp add minizip-ng support (#115)
+  * PR from captaingroove to add minizip-ng support (#115)
 
 0.2.33
 

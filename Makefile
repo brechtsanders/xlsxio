@@ -90,7 +90,7 @@ endif
 
 ifdef STATICDLL
 ifeq ($(OS),Windows_NT)
-# lines below to compile Windows DLLs with no dependancies
+# lines below to compile Windows DLLs with no dependencies
 ifdef WITH_LIBZIP
 override CFLAGS += -DZIP_STATIC
 endif

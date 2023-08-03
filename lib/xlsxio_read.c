@@ -1149,7 +1149,7 @@ void data_sheet_expat_callback_find_cell_start (void* callbackdata, const XML_Ch
         }
       }
     }
-    //determing value type
+    //determine value type
     if ((t = get_expat_attr_by_name(atts, X("t"))) != NULL && XML_Char_icmp(t, X("s")) == 0)
       data->cell_string_type = shared_string;
     else
@@ -1623,7 +1623,7 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_cell_datetime (xlsxioreadersheet she
   if (pvalue) {
     double value = XML_Char_tod(result);
     if (value != 0) {
-      value = (value - 25569) * 86400;  //converstion from Excel to Unix timestamp
+      value = (value - 25569) * 86400;  //conversion from Excel to Unix timestamp
     }
     *pvalue = value;
   }

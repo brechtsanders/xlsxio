@@ -537,7 +537,7 @@ char* get_A1col (uint64_t col)
 {
   char* result = NULL;
   size_t resultlen = 0;
-  //allocate 19 bytes as the maximum value for 64-bit devided by 26 has 18 digits
+  //allocate 19 bytes as the maximum value for 64-bit divided by 26 has 18 digits
   if (col > 0 && (result = (char*)malloc(19)) != NULL) {
     result[0] = 0;
     do {

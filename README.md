@@ -29,7 +29,7 @@ Reading .xlsx files:
 - supports .xlsx files without shared string table
 - worksheet data itself is read on the fly without the need to buffer data in memory
 - 2 methods are provided
-  + a simple method that allows the application to iterate trough rows and cells
+  + a simple method that allows the application to iterate through rows and cells
   + an advanced method (with less overhead) which calls callback functions for each cell and after each row
 
 Writing .xlsx files:

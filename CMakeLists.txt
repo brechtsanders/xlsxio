@@ -38,14 +38,14 @@ IF(NOT BUILD_STATIC AND NOT BUILD_SHARED)
   MESSAGE(FATAL_ERROR "Cannot build with both BUILD_STATIC and BUILD_SHARED disabled")
 ENDIF()
 
-# dependancies
+# dependencies
 SET(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
-#   dependancy: zlib (dependancy of libzip/Minizip, should be detected there)
+#   dependency: zlib (dependency of libzip/Minizip, should be detected there)
 IF(ZLIB_DIR)
   SET(ZLIB_ROOT ${ZLIB_DIR})
 ENDIF()
 #FIND_PACKAGE(ZLIB REQUIRED)
-#   dependancy: libzip/minizip/minizip-ng
+#   dependency: libzip/minizip/minizip-ng
 IF(WITH_LIBZIP)
   FIND_PACKAGE(LibZip REQUIRED)
   SET(ANYZIP_INCLUDE_DIRS ${LIBZIP_INCLUDE_DIRS})
@@ -62,7 +62,7 @@ ELSE()
   SET(ANYZIP_LIBRARIES ${MINIZIP_LIBRARIES})
   SET(ANYZIP_DEF USE_MINIZIP)
 ENDIF()
-#   dependancy: expat
+#   dependency: expat
 IF(EXPAT_DIR)
   #FIND_PACKAGE(EXPAT MODULE REQUIRED NO_DEFAULT_PATH PATHS ${EXPAT_DIR})
   FIND_PATH(EXPAT_INCLUDE_DIR NAMES expat.h NO_DEFAULT_PATH PATHS ${EXPAT_DIR}/include ${EXPAT_DIR})
@@ -70,7 +70,7 @@ IF(EXPAT_DIR)
 ELSE()
   FIND_PACKAGE(EXPAT REQUIRED)
 ENDIF()
-#   dependancy: expatw (if wide library was requested)
+#   dependency: expatw (if wide library was requested)
 IF(WITH_WIDE)
   IF(EXPAT_DIR)
     FIND_LIBRARY(EXPATW_LIBRARIES NAMES expatw libexpatw NO_DEFAULT_PATH PATHS ${EXPAT_DIR}/lib ${EXPAT_DIR})

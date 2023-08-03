@@ -1,5 +1,9 @@
 0.2.35
 
+2023-08-03  Brecht Sanders  https://github.com/brechtsanders/
+
+  * fix typos discovered by codespell (#122)
+
 2023-05-30  Brecht Sanders  https://github.com/brechtsanders/
 
   * fix free of uninitialized pointer in xlsxioread_sheetlist_close() (#121)
@@ -14,7 +18,7 @@
 
 2022-07-05  Brecht Sanders  https://github.com/brechtsanders/
 
-  * PR from JackBoosY to export CMake targets automaticly (to cmake folder under install path) (#105)
+  * PR from JackBoosY to export CMake targets automatically (to cmake folder under install path) (#105)
 
 0.2.32
 
@@ -134,7 +138,7 @@
 2018-06-23  Brecht Sanders  https://github.com/brechtsanders/
 
   * fixed join_basepath_filename in xlsx_read.c to also support absolute paths (issue reported by Matthew James Briggs)
-  * added CMake options to specify custom dependancy paths: ZLIB_DIR/MINIZIP_DIR/LIBZIP_DIR/EXPAT_DIR (requested by Yann Ducruy)
+  * added CMake options to specify custom dependency paths: ZLIB_DIR/MINIZIP_DIR/LIBZIP_DIR/EXPAT_DIR (requested by Yann Ducruy)
 
 0.2.19
 
@@ -234,7 +238,7 @@
 2017-07-12  Brecht Sanders  https://github.com/brechtsanders/
 
   * use strcasecmp instead of stricmp
-  * move shared strings functionality from xlsxio_read.c to seperate file
+  * move shared strings functionality from xlsxio_read.c to separate file
 
 0.2.8
 
@@ -353,8 +357,8 @@
 
 2016-03-20  Brecht Sanders  https://github.com/brechtsanders/
 
-  * fixed issue with detecting witdh of columns with NULL data
-  * changed witdh detection to only count first line of multiline data
+  * fixed issue with detecting width of columns with NULL data
+  * changed width detection to only count first line of multiline data
   * fixed issue with inserting empty rows
   * only freezes top row when columns were specified
 
@@ -363,8 +367,8 @@
 2016-03-19  Brecht Sanders  https://github.com/brechtsanders/
 
   * optimized code for writing cell data
-  * added witdh parameter to xlsxiowrite_add_column()
-  * added column witdh detection and xlsxiowrite_set_detection_rows()
+  * added width parameter to xlsxiowrite_add_column()
+  * added column width detection and xlsxiowrite_set_detection_rows()
   * added xlsxiowrite_set_row_height()
 
 0.1.3

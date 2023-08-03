@@ -35,12 +35,12 @@ THE SOFTWARE.
 
 const char* filename = "example.xlsx";
 
-//calback data structure for listing sheets
+//callback data structure for listing sheets
 struct xlsx_list_sheets_data {
   char* firstsheet;
 };
 
-//calback function for listing sheets
+//callback function for listing sheets
 int xlsx_list_sheets_callback (const char* name, void* callbackdata)
 {
   struct xlsx_list_sheets_data* data = (struct xlsx_list_sheets_data*)callbackdata;
@@ -50,14 +50,14 @@ int xlsx_list_sheets_callback (const char* name, void* callbackdata)
   return 0;
 }
 
-//calback function for end of row
+//callback function for end of row
 int sheet_row_callback (size_t row, size_t maxcol, void* callbackdata)
 {
   printf("\n");
   return 0;
 }
 
-//calback function for cell data
+//callback function for cell data
 int sheet_cell_callback (size_t row, size_t col, const XLSXIOCHAR* value, void* callbackdata)
 {
   if (col > 1)

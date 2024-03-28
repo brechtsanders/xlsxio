@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_workspace_file>
+	<Workspace title="test3">
+		<Project filename="Z:/xlsxio/build/libxlsxio_read_shared.cbp" />
+		<Project filename="Z:/xlsxio/build/test3.cbp">
+			<Depends filename="Z:/xlsxio/build/libxlsxio_read_shared.cbp" />
+		</Project>
+	</Workspace>
+</CodeBlocks_workspace_file>

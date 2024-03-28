@@ -36,7 +36,7 @@
 	<stdlib.h>
 	<string.h>
 
-1609251759 source:z:\xlsxio\lib\xlsxio_read.c
+1691051722 source:z:\xlsxio\lib\xlsxio_read.c
 	"xlsxio_private.h"
 	"xlsxio_read_sharedstrings.h"
 	"xlsxio_read.h"
@@ -46,6 +46,7 @@
 	<inttypes.h>
 	<string.h>
 	<expat.h>
+	<mz_compat.h>
 	<minizip/unzip.h>
 	<io.h>
 	<unistd.h>
@@ -64,7 +65,7 @@
 	<time.h>
 	<wchar.h>
 
-1594537032 z:\xlsxio\include\xlsxio_version.h
+1685458080 z:\xlsxio\include\xlsxio_version.h
 
 1522317802 source:z:\xlsxio\lib\xlsxio_read_sharedstrings.c
 	"xlsxio_private.h"

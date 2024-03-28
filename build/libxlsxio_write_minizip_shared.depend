@@ -23,7 +23,7 @@
 
 1685461680 \\server\users\brecht\sources\cpp\xlsxio\include\xlsxio_version.h
 
-1584724326 source:z:\xlsxio\lib\xlsxio_write.c
+1691051673 source:z:\xlsxio\lib\xlsxio_write.c
 	"xlsxio_write.h"
 	"xlsxio_version.h"
 	<stdlib.h>
@@ -34,6 +34,7 @@
 	<unistd.h>
 	<fcntl.h>
 	<stdarg.h>
+	<mz_compat.h>
 	<minizip/zip.h>
 	<zip.h>
 	<windows.h>
@@ -44,5 +45,5 @@
 	<stdint.h>
 	<time.h>
 
-1594537032 z:\xlsxio\include\xlsxio_version.h
+1685458080 z:\xlsxio\include\xlsxio_version.h
 

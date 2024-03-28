@@ -2,12 +2,16 @@
 .idea
 .svn/
 *.xlsx
+*.zip
 *.7z
+*.xz
 *.layout
 *.depend
 *.URL
 *.a
 *.so
+*.bak
+version
 obj/
 bin/
 doc/
@@ -20,3 +24,8 @@ example_xlsxio_write
 example_xlsxio_write_getversion
 xlsxio_csv2xlsx
 xlsxio_xlsx2csv
+example.xlsx*
+build_win/
+DELETEME/
+xlsxio_f/
+ODS/

@@ -2,6 +2,7 @@
 .idea
 .svn/
 *.xlsx
+*.csv
 *.zip
 *.7z
 *.xz

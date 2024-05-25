@@ -95,6 +95,7 @@ jobs:
          expat \
          minizip \
          libzip
+        find /opt/homebrew/ -name unzip.h
     - uses: actions/checkout@v1
     - name: Build
       run: |
@@ -110,8 +111,8 @@ jobs:
     #    PKG_CONFIG_PATH=$PWD/deps/lib/pkgconfig:/usr/local/opt/libarchive/lib/pkgconfig:$PKG_CONFIG_PATH \
     #     make binarypackage \
     #     STATIC=1 \
-    #     CFLAGS="-I$PWD/deps/include -I/usr/local/opt/libarchive/include" \
-    #     LDFLAGS="-L$PWD/deps/lib -L/usr/local/opt/libarchive/lib"
+    #     CFLAGS="-I$PWD/deps/include -I/usr/local/opt/libarchive/include -I/opt/homebrew/Cellar/minizip/1.3.1/include" \
+    #     LDFLAGS="-L$PWD/deps/lib -L/usr/local/opt/libarchive/lib -L/opt/homebrew/Cellar/minizip/1.3.1/lib"
     #    mv xlsxio-*.zip xlsxio-${{ matrix.config.arch }}.zip
     #- if: matrix.config.os == 'windows-latest'
     #  name: Upload package

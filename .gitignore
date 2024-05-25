@@ -29,3 +29,6 @@ build_win/
 DELETEME/
 xlsxio_f/
 ODS/
+issues/
+community/
+build/*.csv

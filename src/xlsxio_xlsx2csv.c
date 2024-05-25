@@ -32,11 +32,11 @@ struct xlsx_data {
   FILE* dst;
   int nobom;
   int sheetnumbers;
-  int sheetcount;
   const char* newline;
   char separator;
   char quote;
   const char* filename;
+  unsigned int sheetcount;
 };
 
 int sheet_row_callback (size_t row, size_t maxcol, void* callbackdata)
@@ -77,19 +77,17 @@ int xlsx_list_sheets_callback (const char* name, void* callbackdata)
 {
   char* filename;
   struct xlsx_data* data = (struct xlsx_data*)callbackdata;
+  size_t filenamelen = strlen(data->filename) + (data->sheetnumbers ? 16 : strlen(name)) + 6;
+  data->sheetcount++;
   //determine output file
-  if ((filename = (char*)malloc(strlen(data->filename) + (data->sheetnumbers ? 16 : strlen(name)) + 6)) == NULL ){
+  if ((filename = (char*)malloc(filenamelen)) == NULL) {
     fprintf(stderr, "Memory allocation error\n");
   } else {
-    data->sheetcount++;
     //determine export filename
-    strcpy(filename, data->filename);
-    strcat(filename, ".");
     if (data->sheetnumbers)
-      itoa(data->sheetcount, filename + strlen(filename), 10);
-		else
-	    strcat(filename, name);
-    strcat(filename, ".csv");
+      snprintf(filename, filenamelen, "%s.%u.csv", data->filename, data->sheetcount);
+    else
+      snprintf(filename, filenamelen, "%s.%s.csv", data->filename, name);
     //display status
     printf("Sheet found: %s, exporting to: %s\n", name, filename);
     //open output file
@@ -136,7 +134,6 @@ int main (int argc, char* argv[])
   struct xlsx_data sheetdata = {
     .nobom = 0,
     .sheetnumbers = 0,
-    .sheetcount = 0,
     .newline = "\r\n",
     .separator = ',',
     .quote = '"',
@@ -179,6 +176,7 @@ int main (int argc, char* argv[])
     if ((xlsxioread = xlsxioread_open(argv[i])) != NULL) {
       sheetdata.xlsxioread = xlsxioread;
       sheetdata.filename = argv[i];
+      sheetdata.sheetcount = 0;
       //iterate through available sheets
       printf("Processing file: %s\n", argv[i]);
       xlsxioread_list_sheets(xlsxioread, xlsx_list_sheets_callback, &sheetdata);

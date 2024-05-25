@@ -95,6 +95,7 @@ jobs:
          expat \
          minizip \
          libzip
+        find /opt/homebrew/ -name unzip.h
     - uses: actions/checkout@v1
     - name: Build
       run: |

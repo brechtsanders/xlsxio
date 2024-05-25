@@ -1,3 +1,8 @@
+0.2.36
+
+ * fixed CMakeLists.txt to use EXPAT_INCLUDE_DIR instead of EXPAT_INCLUDE_DIRS (#108)
+ * added -u option to xlsxio_xlsx2csv to use sheet numbers instead of sheet names (#118)
+
 0.2.35
 
 2023-08-03  Brecht Sanders  https://github.com/brechtsanders/
@@ -49,15 +54,15 @@
 2020-12-29  Viest  https://github.com/viest
 
   * added XLSXIOREAD_SKIP_HIDDEN_ROWS to xlsxio_read.h, skipping hidden rows is no longer the default setting
-  
+
 2020-12-29  akuhtr  https://github.com/akuhtr
 
   * fixed example in README.md to use xlsxioread_free() instead of free()
-  
+
 2020-07-12  Remi Collet  https://github.com/remicollet
 
   * added XLSXIO_VERSION_ID to xlsxio_version.h
-  
+
 0.2.29
 
 2020-07-10  Brecht Sanders  https://github.com/brechtsanders/
@@ -145,7 +150,7 @@
 2018-06-18  Brecht Sanders  https://github.com/brechtsanders/
 
   * fixed crash in xlsx_read.c when XML_Char_openzip is called with empty filename (crash reported by Matthew James Briggs)
-  
+
 2018-05-17  Brecht Sanders  https://github.com/brechtsanders/
 
   * fixed memory allocation issue when using minizip version of xlsx_read
@@ -155,7 +160,7 @@
 2018-04-27  Brecht Sanders  https://github.com/brechtsanders/
 
   * fixed formatting issue with cell coordinates
-  
+
 0.2.17
 
 2018-03-22  Brecht Sanders  https://github.com/brechtsanders/
@@ -167,7 +172,7 @@
 2018-03-18  Brecht Sanders  https://github.com/brechtsanders/
 
   * fixed formatting issue with cell coordinates
-  
+
 0.2.15
 
 2018-03-18  Brecht Sanders  https://github.com/brechtsanders/
@@ -295,7 +300,7 @@
 2016-05-05  Brecht Sanders  https://github.com/brechtsanders/
 
   * added CMake BUILD_DOCUMENTATION option (defaults to ON if Doxygen is detected)
-  * workaround for missing stdint.h/unistd.h on Visual C 
+  * workaround for missing stdint.h/unistd.h on Visual C
   * removed -pthread when building for Apple
   * released Windows binaries (32-bit and 64-bit)
 

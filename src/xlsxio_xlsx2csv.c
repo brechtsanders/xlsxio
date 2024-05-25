@@ -31,8 +31,8 @@ struct xlsx_data {
   xlsxioreader xlsxioread;
   FILE* dst;
   int nobom;
-  int numbers;
-  int file_count;
+  int sheetnumbers;
+  int sheetcount;
   const char* newline;
   char separator;
   char quote;
@@ -78,28 +78,17 @@ int xlsx_list_sheets_callback (const char* name, void* callbackdata)
   char* filename;
   struct xlsx_data* data = (struct xlsx_data*)callbackdata;
   //determine output file
-  if ((filename = (char*)malloc(strlen(data->filename) + strlen(name) + 6)) == NULL ){
+  if ((filename = (char*)malloc(strlen(data->filename) + (data->sheetnumbers ? 16 : strlen(name)) + 6)) == NULL ){
     fprintf(stderr, "Memory allocation error\n");
   } else {
-
-	char str[16];
-
-      if (data->numbers)
-		{
-		   //Vs writing the sheetname, this will write the number of the sheet !
-			snprintf(str, sizeof(str), "%d", data->file_count++);
-		}		
-		
-		
-
+    data->sheetcount++;
     //determine export filename
     strcpy(filename, data->filename);
     strcat(filename, ".");
-      if (data->numbers)
-	    strcat(filename, str);
+    if (data->sheetnumbers)
+      itoa(data->sheetcount, filename + strlen(filename), 10);
 		else
 	    strcat(filename, name);
-
     strcat(filename, ".csv");
     //display status
     printf("Sheet found: %s, exporting to: %s\n", name, filename);
@@ -130,7 +119,7 @@ void show_help ()
     "  -s separator\tspecify separator to use (default is comma)\n"
     "  -b          \tdon't write UTF-8 BOM signature\n"
     "  -n          \tuse UNIX style line breaks\n"
-    "  -u          \toutput sheet number instead of sheet name\n"
+    "  -u          \tuse sheet number in output file name (instead of sheet name)\n"
     "  xlsxfile    \tpath to .xlsx file (multiple may be specified)\n"
     "Description:\n"
     "Converts all sheets in all specified .xlsx files to individual CSV (Comma Separated Values) files.\n"
@@ -146,8 +135,8 @@ int main (int argc, char* argv[])
   xlsxioreader xlsxioread;
   struct xlsx_data sheetdata = {
     .nobom = 0,
-    .numbers = 0,
-    .file_count = 1,
+    .sheetnumbers = 0,
+    .sheetcount = 0,
     .newline = "\r\n",
     .separator = ',',
     .quote = '"',
@@ -179,7 +168,7 @@ int main (int argc, char* argv[])
           sheetdata.nobom = 1;
           continue;
         case 'u' :
-          sheetdata.numbers = 1;
+          sheetdata.sheetnumbers = 1;
           continue;
         case 'n' :
           sheetdata.newline = "\n";

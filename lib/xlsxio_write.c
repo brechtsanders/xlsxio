@@ -47,7 +47,9 @@ typedef struct zip_source zip_source_t;
 #if defined(_MSC_VER)
 #  undef DLL_EXPORT_XLSXIO
 #  define DLL_EXPORT_XLSXIO
-#  define va_copy(dst,src) ((dst) = (src))
+#  ifndef va_copy
+#    define va_copy(dst,src) ((dst) = (src))
+#  endif
 #endif
 
 #ifdef _WIN32

@@ -1625,7 +1625,7 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_cell_datetime (xlsxioreadersheet she
     if (value != 0) {
       value = (value - 25569) * 86400;  //conversion from Excel to Unix timestamp
     }
-    *pvalue = value;
+    *pvalue = (time_t)value;
   }
   free(result);
   return 1;

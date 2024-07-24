@@ -8,7 +8,7 @@ int main (int argc, char* argv[])
   if (argc <= 1)
     return 0;
   unlink(argv[1]);
-  if ((handle = xlsxiowrite_open(argv[1])) == NULL) {
+  if ((handle = xlsxiowrite_open(argv[1], NULL)) == NULL) {
     fprintf(stderr, "Error creating zip file\n");
     return 1;
   }

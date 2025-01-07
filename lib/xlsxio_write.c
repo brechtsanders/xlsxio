@@ -398,9 +398,12 @@ char* str_replace (char** s, size_t pos, size_t len, char* replacement)
     pos = totallen;
   if (pos + len > totallen)
     len = totallen - pos;
-  if (replacementlen > len)
-    if ((*s = (char*)realloc(*s, totallen - len + replacementlen + 1)) == NULL)
+  if (replacementlen > len) {
+    char *temp = (char*)realloc(*s, totallen - len + replacementlen + 1);
+    if (temp == NULL)
       return NULL;
+    *s = temp;
+  }
   memmove(*s + pos + replacementlen, *s + pos + len, totallen - pos - len + 1);
   memcpy(*s + pos, replacement, replacementlen);
   return *s;
@@ -484,8 +487,10 @@ int append_data (char** pdata, size_t* pdatalen, const char* format, ...)
   va_end(args);
   if (len < 0)
     return -1;
-  if ((*pdata = (char*)realloc(*pdata, *pdatalen + len + 1)) == NULL)
+  char *temp = (char*)realloc(*pdata, *pdatalen + len + 1);
+  if (temp == NULL)
     return -1;
+  *pdata = temp;
   va_start(args, format);
   vsnprintf(*pdata + *pdatalen, len + 1, format, args);
   va_end(args);

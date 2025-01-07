@@ -195,10 +195,12 @@ void shared_strings_callback_find_shared_string_end (void* callbackdata, const X
 void shared_strings_callback_string_data (void* callbackdata, const XML_Char* buf, int buflen)
 {
   struct shared_strings_callback_data* data = (struct shared_strings_callback_data*)callbackdata;
-  if ((data->text = XML_Char_realloc(data->text, data->textlen + buflen)) == NULL) {
+  XML_Char *temp = XML_Char_realloc(data->text, data->textlen + buflen);
+  if (temp == NULL) {
     //memory allocation error
     data->textlen = 0;
   } else {
+    data->text = temp;
     XML_Char_poscpy(data->text, data->textlen, buf, buflen);
     data->textlen += buflen;
   }

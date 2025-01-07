@@ -764,17 +764,15 @@ void main_sheet_list_expat_callback_element_start (void* callbackdata, const XML
       const XML_Char* sheetname;
       //const XML_Char* relid = get_expat_attr_by_name(atts, X("r:id"));
       if ((sheetname = get_expat_attr_by_name(atts, X("name"))) != NULL) {
-        if (data->callback) {
-          if ((*data->callback)(sheetname, data->callbackdata) != 0) {
-            XML_StopParser(data->xmlparser, XML_FALSE);
-            return;
-          }
-/*
-        } else {
-          //for non-calback method suspend here
-          XML_StopParser(data->xmlparser, XML_TRUE);
-*/
+        if ((*data->callback)(sheetname, data->callbackdata) != 0) {
+          XML_StopParser(data->xmlparser, XML_FALSE);
+          return;
         }
+/*
+      } else {
+        //for non-calback method suspend here
+        XML_StopParser(data->xmlparser, XML_TRUE);
+*/
       }
     }
   }
@@ -1142,7 +1140,7 @@ void data_sheet_expat_callback_find_cell_start (void* callbackdata, const XML_Ch
         if ((data->flags & XLSXIOREAD_SKIP_EXTRA_CELLS) && data->cols > 0 && cellmax > data->cols)
           cellmax = data->cols;
         while (data->colnr < cellmax) {
-          if (data->colnr > 0 && data->sheet_cell_callback) {
+          if (data->sheet_cell_callback) {
             if ((*data->sheet_cell_callback)(data->rownr, data->colnr + 1, NULL, data->callbackdata)) {
               XML_StopParser(data->xmlparser, XML_FALSE);
               return;

@@ -915,30 +915,28 @@ void write_cell_data (xlsxiowriter handle, const char* rowattr, const char* pref
     if (suffix)
       append_data(&handle->buf, &handle->buflen, suffix);
     //collect cell information
-    if (!handle->sheetopen) {
-      if (!*handle->pcurrentcolumn) {
-        //create new column information structure
-        struct column_info_struct* colinfo;
-        if ((colinfo = (struct column_info_struct*)malloc(sizeof(struct column_info_struct))) != NULL) {
-          colinfo->width = 0;
-          colinfo->maxwidth = 0;
-          colinfo->next = NULL;
-          *handle->pcurrentcolumn = colinfo;
-        }
+    if (!*handle->pcurrentcolumn) {
+      //create new column information structure
+      struct column_info_struct* colinfo;
+      if ((colinfo = (struct column_info_struct*)malloc(sizeof(struct column_info_struct))) != NULL) {
+        colinfo->width = 0;
+        colinfo->maxwidth = 0;
+        colinfo->next = NULL;
+        *handle->pcurrentcolumn = colinfo;
       }
-      //keep track of biggest column width
-      if (data) {
-        //only count first line in multiline data
-        char* p = strchr(data, '\n');
-        if (p)
-          datalen = p - data;
-        //remember this length if it is the longest one so far
-        if (datalen > 0 && datalen > (*handle->pcurrentcolumn)->maxwidth)
-          (*handle->pcurrentcolumn)->maxwidth = datalen;
-      }
-      //prepare for the next column
-      handle->pcurrentcolumn = &(*handle->pcurrentcolumn)->next;
     }
+    //keep track of biggest column width
+    if (data) {
+      //only count first line in multiline data
+      char* p = strchr(data, '\n');
+      if (p)
+        datalen = p - data;
+      //remember this length if it is the longest one so far
+      if (datalen > 0 && datalen > (*handle->pcurrentcolumn)->maxwidth)
+        (*handle->pcurrentcolumn)->maxwidth = datalen;
+    }
+    //prepare for the next column
+    handle->pcurrentcolumn = &(*handle->pcurrentcolumn)->next;
   }
 #if !defined(NO_ROW_NUMBERS) && !defined(NO_COLUMN_NUMBERS)
   free(cellcoord);

@@ -704,7 +704,10 @@ unzGetGlobalInfo(data->zip, &zipglobalinfo);
           buf[buflen - 1] = 0;
           while ((status = unzGetCurrentFileInfo(data->zip, NULL, buf, buflen, NULL, 0, NULL, 0)) == UNZ_OK && buf[buflen - 1] != 0) {
             buflen += UNZIP_FILENAME_BUFFER_STEP;
-            buf = (char*)realloc(buf, buflen);
+            if ((buf = (char*)realloc(buf, buflen)) == NULL) {
+              //memory allocation error
+              return;
+            }
             buf[buflen - 1] = 0;
           }
           if (status != UNZ_OK)
@@ -1264,12 +1267,10 @@ void data_sheet_expat_callback_value_data (void* callbackdata, const XML_Char* b
 {
   struct data_sheet_callback_data* data = (struct data_sheet_callback_data*)callbackdata;
   if (data->cell_string_type != none) {
-    XML_Char *temp = XML_Char_realloc(data->celldata, data->celldatalen + buflen + 1);
-    if (temp == NULL) {
+    if ((data->celldata = XML_Char_realloc(data->celldata, data->celldatalen + buflen + 1)) == NULL) {
       //memory allocation error
       data->celldatalen = 0;
     } else {
-      data->celldata = temp;
       //add new data to value buffer
       XML_Char_poscpy(data->celldata, data->celldatalen, buf, buflen);
       data->celldatalen += buflen;

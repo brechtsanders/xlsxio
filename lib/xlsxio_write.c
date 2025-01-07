@@ -158,7 +158,7 @@ const char* docprops_core_xml =
 const char* docprops_app_xml =
   XML_HEADER
   "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\" xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">" OPTIONAL_LINE_BREAK
-  "<Application>" XLSXIOWRITE_NAME " " XLSXIO_VERSION_STRING "</Application>" OPTIONAL_LINE_BREAK 
+  "<Application>" XLSXIOWRITE_NAME " " XLSXIO_VERSION_STRING "</Application>" OPTIONAL_LINE_BREAK
   "</Properties>" OPTIONAL_LINE_BREAK;
 
 const char* rels_xml =
@@ -399,10 +399,10 @@ char* str_replace (char** s, size_t pos, size_t len, char* replacement)
   if (pos + len > totallen)
     len = totallen - pos;
   if (replacementlen > len) {
-    char *temp = (char*)realloc(*s, totallen - len + replacementlen + 1);
-    if (temp == NULL)
+    if ((*s = (char*)realloc(*s, totallen - len + replacementlen + 1)) == NULL) {
+      //memory allocation error
       return NULL;
-    *s = temp;
+    }
   }
   memmove(*s + pos + replacementlen, *s + pos + len, totallen - pos - len + 1);
   memcpy(*s + pos, replacement, replacementlen);
@@ -457,8 +457,10 @@ int vappend_data (char** pdata, size_t* pdatalen, const char* format, va_list ar
   if ((len = vsnprintf(NULL, 0, format, args)) < 0)
     return -1;
   va_end(args);
-  if ((*pdata = (char*)realloc(*pdata, *pdatalen + len + 1)) == NULL)
+  if ((*pdata = (char*)realloc(*pdata, *pdatalen + len + 1)) == NULL) {
+    //memory allocation error
     return -1;
+  }
   vsnprintf(*pdata + *pdatalen, len + 1, format, args2);
   va_end(args2);
   *pdatalen += len;
@@ -487,10 +489,10 @@ int append_data (char** pdata, size_t* pdatalen, const char* format, ...)
   va_end(args);
   if (len < 0)
     return -1;
-  char *temp = (char*)realloc(*pdata, *pdatalen + len + 1);
-  if (temp == NULL)
+  if ((*pdata = (char*)realloc(*pdata, *pdatalen + len + 1)) == NULL) {
+    //memory allocation error
     return -1;
-  *pdata = temp;
+  }
   va_start(args, format);
   vsnprintf(*pdata + *pdatalen, len + 1, format, args);
   va_end(args);
@@ -510,8 +512,10 @@ int insert_data (char** pdata, size_t* pdatalen, size_t pos, const char* format,
   va_end(args);
   if (len < 0)
     return -1;
-  if ((*pdata = (char*)realloc(*pdata, *pdatalen + len + 1)) == NULL)
+  if ((*pdata = (char*)realloc(*pdata, *pdatalen + len + 1)) == NULL) {
+    //memory allocation error
     return -1;
+  }
   if (pos > *pdatalen)
     pos = *pdatalen;
   if (pos < *pdatalen)

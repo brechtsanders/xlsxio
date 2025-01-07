@@ -1,5 +1,15 @@
 0.2.36
 
+2025-01-07
+
+ * fixes by Tattersalt-Kanzaki to catch failed realloc() calls (#138)
+
+2024-07-24
+
+ * fixes by Václav Slavík to support modern MSVC
+
+2024-05-25
+
  * fixed CMakeLists.txt to use EXPAT_INCLUDE_DIR instead of EXPAT_INCLUDE_DIRS (#108)
  * added -u option to xlsxio_xlsx2csv to use sheet numbers instead of sheet names (#118)
 

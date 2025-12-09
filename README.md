@@ -122,6 +122,20 @@ lib /def:libxlsxio_read.def /out:libxlsxio_read.lib /machine:x64
 lib /def:libxlsxio_readw.def /out:libxlsxio_readw.lib /machine:x64
 ```
 
+Installing XLSX I/O using Conan
+-------------------------------
+
+You can install pre-built binaries for XLSX I/O or build it from source using
+[Conan](https://conan.io/). Use the following command:
+
+```bash
+conan install --requires="xlsxio/[*]" --build=missing
+```
+
+The XLSX I/O Conan recipe is kept up to date by Conan maintainers and community contributors.
+If the version is out of date, please [create an issue or pull request](https://github.com/conan-io/conan-center-index)
+on the ConanCenterIndex repository.
+
 Example C programs
 ------------------
 ### Reading from an .xlsx file

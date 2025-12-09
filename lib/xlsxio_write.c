@@ -11,12 +11,8 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
-#if defined(USE_MINIZIP) || defined(USE_MINIZIP_NG)
-#  ifdef USE_MINIZIP_NG
-#    include <minizip-ng/zip.h>
-#  else
-#    include <minizip/zip.h>
-#  endif
+#if defined(USE_MINIZIP)
+#  include <minizip/zip.h>
 #  if !defined(Z_DEFLATED) && defined(MZ_COMPRESS_METHOD_DEFLATE) /* support minizip2 which defines MZ_COMPRESS_METHOD_DEFLATE instead of Z_DEFLATED */
 #    define Z_DEFLATED MZ_COMPRESS_METHOD_DEFLATE
 #  endif
@@ -1092,4 +1088,3 @@ DLL_EXPORT_XLSXIO void xlsxiowrite_next_row (xlsxiowriter handle)
   handle->rowopen = 0;
   handle->pcurrentcolumn = &handle->columninfo;
 }
-

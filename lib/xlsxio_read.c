@@ -694,7 +694,7 @@ void iterate_files_by_contenttype_expat_callback_element_start (void* callbackda
     // never matches for the content types xlsxio looks up. Skip it on the minizip
     // backend at compile time; the libzip backend (index-based zip_get_name) is
     // unaffected and keeps its original logic.
-#ifndef USE_MINIZIP
+#ifndef USE_MINIZIP /* !USE_MINIZIP: skip <Default> branch to avoid minizip state clash */
     const XML_Char* contenttype;
     const XML_Char* extension;
     if ((contenttype = get_expat_attr_by_name(atts, X("ContentType"))) != NULL && XML_Char_icmp(contenttype, data->contenttype) == 0) {

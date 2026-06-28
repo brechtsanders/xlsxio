@@ -162,6 +162,34 @@ DLL_EXPORT_XLSXIO void xlsxioread_list_sheets (xlsxioreader handle, xlsxioread_l
 #define XLSXIOREAD_SKIP_HIDDEN_ROWS     0x08
 /*! @} */
 
+/*! \brief possible values for cell type
+ * \sa     xlsxioread_sheet_next_cell_struct()
+ * \name   XLSXIOREAD_CELL_TYPE_*
+ * \{
+ */
+typedef enum {
+  XLSXIOREAD_CELL_TYPE_NONE,            /*!< \brief unknown or empty cell \hideinitializer */
+  XLSXIOREAD_CELL_TYPE_VALUE,           /*!< \brief numeric value \hideinitializer */
+  XLSXIOREAD_CELL_TYPE_BOOLEAN,         /*!< \brief boolean value \hideinitializer */
+  XLSXIOREAD_CELL_TYPE_STRING,          /*!< \brief string value \hideinitializer */
+  XLSXIOREAD_CELL_TYPE_DATE             /*!< \brief date/time value (stored as number with date format) \hideinitializer */
+} xlsxioread_cell_type;
+/*! @} */
+
+/*! \brief cell data structure returned by xlsxioread_sheet_next_cell_struct()
+ * \sa     xlsxioread_sheet_next_cell_struct()
+ */
+struct xlsxioread_cell_data {
+  size_t row_num;                       /*!< \brief row number (first row is 1) */
+  size_t col_num;                       /*!< \brief column number (first column is 1) */
+  XLSXIOCHAR* data;                     /*!< \brief cell value as string */
+  xlsxioread_cell_type cell_type;       /*!< \brief detected cell type */
+  XLSXIOCHAR* number_fmt;              /*!< \brief number format string (NULL unless numeric/date) */
+};
+
+/*! \brief pointer to cell data structure */
+typedef struct xlsxioread_cell_data* xlsxioread_cell;
+
 /*! \brief type of pointer to callback function for processing a worksheet cell value
  * \param  row           row number (first row is 1)
  * \param  col           column number (first column is 1)
@@ -195,6 +223,31 @@ typedef int (*xlsxioread_process_row_callback_fn)(size_t row, size_t maxcol, voi
  * \sa     xlsxioread_process_cell_callback_fn
  */
 DLL_EXPORT_XLSXIO int xlsxioread_process (xlsxioreader handle, const XLSXIOCHAR* sheetname, unsigned int flags, xlsxioread_process_cell_callback_fn cell_callback, xlsxioread_process_row_callback_fn row_callback, void* callbackdata);
+
+/*! \brief type of pointer to callback function for processing a worksheet cell value with type information
+ * \param  row           row number (first row is 1)
+ * \param  col           column number (first column is 1)
+ * \param  value         value of cell (note: formulas are not calculated)
+ * \param  cell_type     detected cell type
+ * \param  number_fmt    number format string (NULL unless numeric/date)
+ * \param  callbackdata  callback data passed to xlsxioread_process_typed
+ * \return zero to continue, non-zero to abort
+ * \sa     xlsxioread_process_typed()
+ */
+typedef int (*xlsxioread_process_cell_typed_callback_fn)(size_t row, size_t col, const XLSXIOCHAR* value, xlsxioread_cell_type cell_type, const XLSXIOCHAR* number_fmt, void* callbackdata);
+
+/*! \brief process all rows and columns of a worksheet in an .xlsx file with cell type information
+ * \param  handle        read handle for .xlsx object
+ * \param  sheetname     worksheet name (NULL for first sheet)
+ * \param  flags         XLSXIOREAD_SKIP_ flag(s) to determine how data is processed
+ * \param  cell_callback callback function called for each cell (with type information)
+ * \param  row_callback  callback function called after each row
+ * \param  callbackdata  callback data passed to xlsxioread_process_typed
+ * \return zero on success, non-zero on error
+ * \sa     xlsxioread_process_cell_typed_callback_fn
+ * \sa     xlsxioread_process_row_callback_fn
+ */
+DLL_EXPORT_XLSXIO int xlsxioread_process_typed (xlsxioreader handle, const XLSXIOCHAR* sheetname, unsigned int flags, xlsxioread_process_cell_typed_callback_fn cell_callback, xlsxioread_process_row_callback_fn row_callback, void* callbackdata);
 
 
 
@@ -275,6 +328,14 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_row (xlsxioreadersheet sheethandle);
  */
 DLL_EXPORT_XLSXIO XLSXIOCHAR* xlsxioread_sheet_next_cell (xlsxioreadersheet sheethandle);
 
+/*! \brief get next cell from worksheet with type information
+ * \param  sheethandle   read handle for worksheet object
+ * \return cell data structure (caller must free the result using free()) or NULL if no more cells are available in the current row
+ * \sa     xlsxioread_sheet_open()
+ * \sa     xlsxioread_cell_data
+ */
+DLL_EXPORT_XLSXIO xlsxioread_cell xlsxioread_sheet_next_cell_struct (xlsxioreadersheet sheethandle);
+
 /*! \brief get next cell from worksheet as a string
  * \param  sheethandle   read handle for worksheet object
  * \param  pvalue        pointer where string will be stored if data is available (caller must free the result using xlsxioread_free())
@@ -318,6 +379,12 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_cell_datetime (xlsxioreadersheet she
  * \sa     xlsxioread_sheet_next_cell_string()
  */
 DLL_EXPORT_XLSXIO void xlsxioread_free (XLSXIOCHAR* data);
+
+/*! \brief print internal styles and number format data for debugging
+ * \param  handle        read handle for .xlsx object
+ * \sa     xlsxioread_open()
+ */
+DLL_EXPORT_XLSXIO void xlsxioread_debug_internals (xlsxioreader handle);
 
 #ifdef __cplusplus
 }

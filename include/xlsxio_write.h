@@ -144,6 +144,13 @@ DLL_EXPORT_XLSXIO void xlsxiowrite_add_cell_int (xlsxiowriter handle, int64_t va
  */
 DLL_EXPORT_XLSXIO void xlsxiowrite_add_cell_float (xlsxiowriter handle, double value);
 
+/*! \brief add a cell with boolean data
+ * \param  handle        write handle for .xlsx object
+ * \param  value         boolean value (0 = false, non-zero = true)
+ * \sa     xlsxiowrite_next_row()
+ */
+DLL_EXPORT_XLSXIO void xlsxiowrite_add_cell_boolean (xlsxiowriter handle, int value);
+
 /*! \brief add a cell with date and time data
  * \param  handle        write handle for .xlsx object
  * \param  value         date and time value

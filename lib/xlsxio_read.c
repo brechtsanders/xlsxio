@@ -372,14 +372,197 @@ size_t get_row_nr (const XML_Char* A1col)
 
 ////////////////////////////////////////////////////////////////////////
 
+struct xlsxio_number_format {
+  int numFmtId;
+  int is_date;
+  XML_Char* fmt;
+};
+
+struct xlsxio_cell_style {
+  int numFmtId;
+  struct xlsxio_number_format* numfmt;
+};
+
 struct xlsxio_read_struct {
   ZIPFILETYPE* zip;
+  struct xlsxio_cell_style* styles;
+  size_t styles_count;
+  struct xlsxio_number_format* numfmts;
+  size_t numfmts_count;
 };
+
+static void xlsxio_read_struct_init_styles (xlsxioreader handle)
+{
+  handle->styles = NULL;
+  handle->styles_count = 0;
+  handle->numfmts = NULL;
+  handle->numfmts_count = 0;
+}
+
+static int is_date_format (int numFmtId, const XML_Char* fmt)
+{
+  //built-in date format IDs (14-22 are dates/times)
+  if (numFmtId >= 14 && numFmtId <= 22)
+    return 1;
+  //check custom format string for date/time characters
+  if (fmt) {
+    int in_literal = 0;
+    const XML_Char* p;
+    for (p = fmt; *p; p++) {
+      if (*p == '"') {
+        in_literal = !in_literal;
+        continue;
+      }
+      if (*p == '\\') {
+        if (*(p + 1))
+          p++;
+        continue;
+      }
+      if (in_literal)
+        continue;
+      if (*p == 'y' || *p == 'Y' || *p == 'd' || *p == 'D' ||
+          *p == 'h' || *p == 'H' || *p == 's' || *p == 'S')
+        return 1;
+      //m/M can be month (date) or minute (time) - both are date-related
+      if (*p == 'm' || *p == 'M')
+        return 1;
+    }
+  }
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////////////
+
+struct styles_callback_data {
+  XML_Parser xmlparser;
+  //numFmts parsing
+  struct xlsxio_number_format* numfmts;
+  size_t numfmts_count;
+  size_t numfmts_alloc;
+  int in_numFmts;
+  //cellXfs parsing
+  struct xlsxio_cell_style* styles;
+  size_t styles_count;
+  size_t styles_alloc;
+  int in_cellXfs;
+};
+
+static void styles_expat_callback_start (void* callbackdata, const XML_Char* name, const XML_Char** atts);
+static void styles_expat_callback_end (void* callbackdata, const XML_Char* name);
+
+static void styles_expat_callback_start (void* callbackdata, const XML_Char* name, const XML_Char** atts)
+{
+  struct styles_callback_data* data = (struct styles_callback_data*)callbackdata;
+  if (XML_Char_icmp_ins(name, X("numFmts")) == 0) {
+    data->in_numFmts = 1;
+  } else if (XML_Char_icmp_ins(name, X("cellXfs")) == 0) {
+    data->in_cellXfs = 1;
+  } else if (data->in_numFmts && XML_Char_icmp_ins(name, X("numFmt")) == 0) {
+    const XML_Char* numFmtIdStr = get_expat_attr_by_name(atts, X("numFmtId"));
+    const XML_Char* formatCode = get_expat_attr_by_name(atts, X("formatCode"));
+    if (numFmtIdStr) {
+      int numFmtId = (int)XML_Char_tol(numFmtIdStr);
+      //grow array if needed
+      if (data->numfmts_count >= data->numfmts_alloc) {
+        size_t newalloc = (data->numfmts_alloc == 0 ? 16 : data->numfmts_alloc * 2);
+        struct xlsxio_number_format* p = (struct xlsxio_number_format*)realloc(data->numfmts, newalloc * sizeof(struct xlsxio_number_format));
+        if (!p)
+          return;
+        data->numfmts = p;
+        data->numfmts_alloc = newalloc;
+      }
+      data->numfmts[data->numfmts_count].numFmtId = numFmtId;
+      data->numfmts[data->numfmts_count].fmt = (formatCode ? XML_Char_dup(formatCode) : NULL);
+      data->numfmts[data->numfmts_count].is_date = is_date_format(numFmtId, formatCode);
+      data->numfmts_count++;
+    }
+  } else if (data->in_cellXfs && XML_Char_icmp_ins(name, X("xf")) == 0) {
+    const XML_Char* numFmtIdStr = get_expat_attr_by_name(atts, X("numFmtId"));
+    //grow array if needed
+    if (data->styles_count >= data->styles_alloc) {
+      size_t newalloc = (data->styles_alloc == 0 ? 16 : data->styles_alloc * 2);
+      struct xlsxio_cell_style* p = (struct xlsxio_cell_style*)realloc(data->styles, newalloc * sizeof(struct xlsxio_cell_style));
+      if (!p)
+        return;
+      data->styles = p;
+      data->styles_alloc = newalloc;
+    }
+    data->styles[data->styles_count].numFmtId = (numFmtIdStr ? (int)XML_Char_tol(numFmtIdStr) : 0);
+    data->styles[data->styles_count].numfmt = NULL;
+    data->styles_count++;
+  }
+}
+
+static void styles_expat_callback_end (void* callbackdata, const XML_Char* name)
+{
+  struct styles_callback_data* data = (struct styles_callback_data*)callbackdata;
+  if (XML_Char_icmp_ins(name, X("numFmts")) == 0) {
+    data->in_numFmts = 0;
+  } else if (XML_Char_icmp_ins(name, X("cellXfs")) == 0) {
+    data->in_cellXfs = 0;
+  }
+}
+
+static void get_styles (xlsxioreader handle, const XML_Char* stylesfile)
+{
+  if (!stylesfile || !*stylesfile)
+    return;
+  struct styles_callback_data data;
+  data.xmlparser = NULL;
+  data.numfmts = NULL;
+  data.numfmts_count = 0;
+  data.numfmts_alloc = 0;
+  data.in_numFmts = 0;
+  data.styles = NULL;
+  data.styles_count = 0;
+  data.styles_alloc = 0;
+  data.in_cellXfs = 0;
+  expat_process_zip_file(handle->zip, stylesfile, styles_expat_callback_start, styles_expat_callback_end, NULL, &data, &data.xmlparser);
+  //link styles to their number formats
+  size_t i, j;
+  for (i = 0; i < data.styles_count; i++) {
+    //check built-in date formats first (no numFmt entry needed)
+    if (data.styles[i].numFmtId >= 14 && data.styles[i].numFmtId <= 22) {
+      //create a synthetic numfmt entry for built-in date formats if not found
+      for (j = 0; j < data.numfmts_count; j++) {
+        if (data.numfmts[j].numFmtId == data.styles[i].numFmtId) {
+          data.styles[i].numfmt = &data.numfmts[j];
+          break;
+        }
+      }
+      continue;
+    }
+    for (j = 0; j < data.numfmts_count; j++) {
+      if (data.numfmts[j].numFmtId == data.styles[i].numFmtId) {
+        data.styles[i].numfmt = &data.numfmts[j];
+        break;
+      }
+    }
+  }
+  handle->styles = data.styles;
+  handle->styles_count = data.styles_count;
+  handle->numfmts = data.numfmts;
+  handle->numfmts_count = data.numfmts_count;
+}
+
+static void xlsxio_read_free_styles (xlsxioreader handle)
+{
+  if (handle->numfmts) {
+    size_t i;
+    for (i = 0; i < handle->numfmts_count; i++)
+      free(handle->numfmts[i].fmt);
+    free(handle->numfmts);
+  }
+  free(handle->styles);
+}
+
+////////////////////////////////////////////////////////////////////////
 
 DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open (const char* filename)
 {
   xlsxioreader result;
   if ((result = (xlsxioreader)malloc(sizeof(struct xlsxio_read_struct))) != NULL) {
+    xlsxio_read_struct_init_styles(result);
 #ifdef USE_MINIZIP
     if ((result->zip = unzOpen(filename)) == NULL) {
 #else
@@ -465,6 +648,7 @@ DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open_filehandle (int filehandle)
 {
   xlsxioreader result;
   if ((result = (xlsxioreader)malloc(sizeof(struct xlsxio_read_struct))) != NULL) {
+    xlsxio_read_struct_init_styles(result);
 #ifdef USE_MINIZIP
     zlib_filefunc_def minizip_io_filehandle_functions;
     if ((minizip_io_filehandle_functions.opaque = malloc(sizeof(struct minizip_io_filehandle_data))) == NULL) {
@@ -606,6 +790,7 @@ DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open_memory (void* data, uint64_t data
   xlsxioreader result;
 #ifdef USE_MINIZIP
   if ((result = (xlsxioreader)malloc(sizeof(struct xlsxio_read_struct))) != NULL) {
+    xlsxio_read_struct_init_styles(result);
     zlib_filefunc_def minizip_io_memory_functions;
     if ((minizip_io_memory_functions.opaque = malloc(sizeof(struct minizip_io_memory_data))) == NULL) {
       free(result);
@@ -632,6 +817,7 @@ DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open_memory (void* data, uint64_t data
     return NULL;
   }
   if ((result = (xlsxioreader)malloc(sizeof(struct xlsxio_read_struct))) != NULL) {
+    xlsxio_read_struct_init_styles(result);
     if ((result->zip = zip_open_from_source(zipsrc, ZIP_RDONLY, NULL)) == NULL) {
       zip_source_free(zipsrc);
       free(result);
@@ -645,6 +831,7 @@ DLL_EXPORT_XLSXIO xlsxioreader xlsxioread_open_memory (void* data, uint64_t data
 DLL_EXPORT_XLSXIO void xlsxioread_close (xlsxioreader handle)
 {
   if (handle) {
+    xlsxio_read_free_styles(handle);
     //note: no need to call zip_source_free() after successful use in zip_open_from_source()
 #ifdef USE_MINIZIP
     unzClose(handle->zip);
@@ -929,6 +1116,7 @@ typedef enum {
 struct data_sheet_callback_data {
   XML_Parser xmlparser;
   struct sharedstringlist* sharedstrings;
+  xlsxioreader handle;
   size_t rownr;
   size_t colnr;
   size_t cols;
@@ -936,6 +1124,8 @@ struct data_sheet_callback_data {
   XML_Char* celldata;
   size_t celldatalen;
   cell_string_type_enum cell_string_type;
+  xlsxioread_cell_type cell_type;
+  XML_Char* number_fmt;
   unsigned int flags;
   XML_Char* skiptag;                    //tag to skip
   size_t skiptagcount;                  //nesting level for current tag to skip
@@ -944,13 +1134,15 @@ struct data_sheet_callback_data {
   XML_CharacterDataHandler skip_data;   //data handler to set after skipping
   xlsxioread_process_row_callback_fn sheet_row_callback;
   xlsxioread_process_cell_callback_fn sheet_cell_callback;
+  xlsxioread_process_cell_typed_callback_fn sheet_cell_typed_callback;
   void* callbackdata;
 };
 
-void data_sheet_callback_data_initialize (struct data_sheet_callback_data* data, struct sharedstringlist* sharedstrings, unsigned int flags, xlsxioread_process_cell_callback_fn cell_callback, xlsxioread_process_row_callback_fn row_callback, void* callbackdata)
+void data_sheet_callback_data_initialize (struct data_sheet_callback_data* data, xlsxioreader handle, struct sharedstringlist* sharedstrings, unsigned int flags, xlsxioread_process_cell_callback_fn cell_callback, xlsxioread_process_row_callback_fn row_callback, void* callbackdata)
 {
   data->xmlparser = NULL;
   data->sharedstrings = sharedstrings;
+  data->handle = handle;
   data->rownr = 0;
   data->colnr = 0;
   data->cols = 0;
@@ -958,6 +1150,8 @@ void data_sheet_callback_data_initialize (struct data_sheet_callback_data* data,
   data->celldata = NULL;
   data->celldatalen = 0;
   data->cell_string_type = none;
+  data->cell_type = XLSXIOREAD_CELL_TYPE_NONE;
+  data->number_fmt = NULL;
   data->flags = flags;
   data->skiptag = NULL;
   data->skiptagcount = 0;
@@ -966,6 +1160,7 @@ void data_sheet_callback_data_initialize (struct data_sheet_callback_data* data,
   data->skip_data = NULL;
   data->sheet_cell_callback = cell_callback;
   data->sheet_row_callback = row_callback;
+  data->sheet_cell_typed_callback = NULL;
   data->callbackdata = callbackdata;
 }
 
@@ -1165,10 +1360,49 @@ void data_sheet_expat_callback_find_cell_start (void* callbackdata, const XML_Ch
       }
     }
     //determine value type
-    if ((t = get_expat_attr_by_name(atts, X("t"))) != NULL && XML_Char_icmp(t, X("s")) == 0)
-      data->cell_string_type = shared_string;
-    else
+    data->cell_type = XLSXIOREAD_CELL_TYPE_NONE;
+    data->number_fmt = NULL;
+    t = get_expat_attr_by_name(atts, X("t"));
+    if (t != NULL) {
+      if (XML_Char_icmp(t, X("s")) == 0) {
+        data->cell_string_type = shared_string;
+        data->cell_type = XLSXIOREAD_CELL_TYPE_STRING;
+      } else if (XML_Char_icmp(t, X("str")) == 0 || XML_Char_icmp(t, X("inlineStr")) == 0) {
+        data->cell_string_type = value_string;
+        data->cell_type = XLSXIOREAD_CELL_TYPE_STRING;
+      } else if (XML_Char_icmp(t, X("b")) == 0) {
+        data->cell_string_type = value_string;
+        data->cell_type = XLSXIOREAD_CELL_TYPE_BOOLEAN;
+      } else {
+        //t="n" (number) or other
+        data->cell_string_type = value_string;
+        data->cell_type = XLSXIOREAD_CELL_TYPE_VALUE;
+      }
+    } else {
+      //no type attribute: check style for date detection
       data->cell_string_type = value_string;
+      data->cell_type = XLSXIOREAD_CELL_TYPE_VALUE;
+      {
+        const XML_Char* s = get_expat_attr_by_name(atts, X("s"));
+        if (s && data->handle && data->handle->styles) {
+          long style_idx = XML_Char_tol(s);
+          if (style_idx >= 0 && (size_t)style_idx < data->handle->styles_count) {
+            struct xlsxio_cell_style* style = &data->handle->styles[style_idx];
+            //check built-in date formats
+            if (style->numFmtId >= 14 && style->numFmtId <= 22) {
+              data->cell_type = XLSXIOREAD_CELL_TYPE_DATE;
+              if (style->numfmt && style->numfmt->fmt)
+                data->number_fmt = style->numfmt->fmt;
+            } else if (style->numfmt) {
+              if (style->numfmt->is_date) {
+                data->cell_type = XLSXIOREAD_CELL_TYPE_DATE;
+              }
+              data->number_fmt = style->numfmt->fmt;
+            }
+          }
+        }
+      }
+    }
     //prepare empty value data
     free(data->celldata);
     data->celldata = NULL;
@@ -1210,22 +1444,34 @@ void data_sheet_expat_callback_find_cell_end (void* callbackdata, const XML_Char
       if (!((data->flags & XLSXIOREAD_SKIP_EXTRA_CELLS) && data->cols > 0 && data->colnr > data->cols)) {
         //process data
         if (!(data->flags & XLSXIOREAD_NO_CALLBACK)) {
-          if (data->sheet_cell_callback) {
+          if (data->sheet_cell_callback || data->sheet_cell_typed_callback) {
             //insert empty columns if needed in case of empty row detection
             /////if ((data->flags & XLSXIOREAD_SKIP_EMPTY_ROWS) && !(data->flags & XLSXIOREAD_SKIP_EMPTY_CELLS) && data->colsnotnull == 0 && data->colnr > 1) {
             if (!(data->flags & XLSXIOREAD_SKIP_EMPTY_CELLS) && data->colsnotnull == 0 && data->colnr > 1) {
               size_t col;
               for (col = 1; col < data->colnr; col++) {
-                if ((*data->sheet_cell_callback)(data->rownr, col, NULL, data->callbackdata)) {
+                int abort = 0;
+                if (data->sheet_cell_callback)
+                  abort = (*data->sheet_cell_callback)(data->rownr, col, NULL, data->callbackdata);
+                if (!abort && data->sheet_cell_typed_callback)
+                  abort = (*data->sheet_cell_typed_callback)(data->rownr, col, NULL, XLSXIOREAD_CELL_TYPE_NONE, NULL, data->callbackdata);
+                if (abort) {
                   XML_StopParser(data->xmlparser, XML_FALSE);
                   return;
                 }
               }
             }
             //process current column data
-            if ((*data->sheet_cell_callback)(data->rownr, data->colnr, data->celldata, data->callbackdata)) {
-              XML_StopParser(data->xmlparser, XML_FALSE);
-              return;
+            {
+              int abort = 0;
+              if (data->sheet_cell_callback)
+                abort = (*data->sheet_cell_callback)(data->rownr, data->colnr, data->celldata, data->callbackdata);
+              if (!abort && data->sheet_cell_typed_callback)
+                abort = (*data->sheet_cell_typed_callback)(data->rownr, data->colnr, data->celldata, data->cell_type, data->number_fmt, data->callbackdata);
+              if (abort) {
+                XML_StopParser(data->xmlparser, XML_FALSE);
+                return;
+              }
             }
             data->colsnotnull++;
           }
@@ -1351,17 +1597,22 @@ DLL_EXPORT_XLSXIO int xlsxioread_process (xlsxioreader handle, const XLSXIOCHAR*
     shared_strings_callback_data_cleanup(&sharedstringsdata);
   }
 
+  //process styles (only on first call)
+  if (!handle->styles && !handle->numfmts) {
+    get_styles(handle, getrelscallbackdata.stylesfile);
+  }
+
   //process sheet
   if (!(flags & XLSXIOREAD_NO_CALLBACK)) {
     //use callback mechanism
     struct data_sheet_callback_data processcallbackdata;
-    data_sheet_callback_data_initialize(&processcallbackdata, sharedstrings, flags, cell_callback, row_callback, callbackdata);
+    data_sheet_callback_data_initialize(&processcallbackdata, handle, sharedstrings, flags, cell_callback, row_callback, callbackdata);
     expat_process_zip_file(handle->zip, getrelscallbackdata.sheetfile, data_sheet_expat_callback_find_worksheet_start, NULL, NULL, &processcallbackdata, &processcallbackdata.xmlparser);
     data_sheet_callback_data_cleanup(&processcallbackdata);
   } else {
     //use simplified interface by suspending the XML parser when data is found
     xlsxioreadersheet sheethandle = (xlsxioreadersheet)callbackdata;
-    data_sheet_callback_data_initialize(&sheethandle->processcallbackdata, sharedstrings, flags, NULL, NULL, sheethandle);
+    data_sheet_callback_data_initialize(&sheethandle->processcallbackdata, handle, sharedstrings, flags, NULL, NULL, sheethandle);
     if ((sheethandle->zipfile = XML_Char_openzip(sheethandle->handle->zip, getrelscallbackdata.sheetfile, 0)) == NULL) {
       result = 1;
     }
@@ -1591,6 +1842,36 @@ DLL_EXPORT_XLSXIO XLSXIOCHAR* xlsxioread_sheet_next_cell (xlsxioreadersheet shee
   return result;
 }
 
+DLL_EXPORT_XLSXIO xlsxioread_cell xlsxioread_sheet_next_cell_struct (xlsxioreadersheet sheethandle)
+{
+  XML_Char* value;
+  xlsxioread_cell cell;
+  if (!sheethandle)
+    return NULL;
+  //save parser column before call to detect padding cells
+  size_t parser_colnr_before = sheethandle->processcallbackdata.colnr;
+  size_t lastcolnr_before = sheethandle->lastcolnr;
+  if ((value = xlsxioread_sheet_next_cell(sheethandle)) == NULL)
+    return NULL;
+  if ((cell = (xlsxioread_cell)malloc(sizeof(struct xlsxioread_cell_data))) == NULL) {
+    free(value);
+    return NULL;
+  }
+  cell->row_num = sheethandle->lastrownr ? sheethandle->lastrownr : sheethandle->processcallbackdata.rownr;
+  cell->col_num = sheethandle->lastcolnr;
+  cell->data = value;
+  //determine if this was a padding cell (parser didn't advance)
+  if (sheethandle->processcallbackdata.colnr == parser_colnr_before && sheethandle->lastcolnr != parser_colnr_before) {
+    //padding cell - empty cell inserted for alignment
+    cell->cell_type = XLSXIOREAD_CELL_TYPE_NONE;
+    cell->number_fmt = NULL;
+  } else {
+    cell->cell_type = sheethandle->processcallbackdata.cell_type;
+    cell->number_fmt = (sheethandle->processcallbackdata.number_fmt ? XML_Char_dup(sheethandle->processcallbackdata.number_fmt) : NULL);
+  }
+  return cell;
+}
+
 DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_cell_string (xlsxioreadersheet sheethandle, XLSXIOCHAR** pvalue)
 {
   XML_Char* result;
@@ -1649,4 +1930,110 @@ DLL_EXPORT_XLSXIO int xlsxioread_sheet_next_cell_datetime (xlsxioreadersheet she
 DLL_EXPORT_XLSXIO void xlsxioread_free (XLSXIOCHAR* data)
 {
   free(data);
+}
+
+DLL_EXPORT_XLSXIO int xlsxioread_process_typed (xlsxioreader handle, const XLSXIOCHAR* sheetname, unsigned int flags, xlsxioread_process_cell_typed_callback_fn cell_callback, xlsxioread_process_row_callback_fn row_callback, void* callbackdata)
+{
+  int result = 0;
+  //determine sheet file name
+  struct main_sheet_get_rels_callback_data getrelscallbackdata = {
+    .sheetname = sheetname,
+    .basepath = NULL,
+    .sheetrelid = NULL,
+    .sheetfile = NULL,
+    .sharedstringsfile = NULL,
+    .stylesfile = NULL
+  };
+  iterate_files_by_contenttype(handle->zip, xlsx_content_type, main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
+  if (!getrelscallbackdata.sheetrelid)
+    iterate_files_by_contenttype(handle->zip, xlsm_content_type, main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
+  if (!getrelscallbackdata.sheetrelid)
+    iterate_files_by_contenttype(handle->zip, xltx_content_type, main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
+  if (!getrelscallbackdata.sheetrelid)
+    iterate_files_by_contenttype(handle->zip, xltm_content_type, main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
+
+  //process shared strings
+  struct sharedstringlist* sharedstrings = NULL;
+  if (getrelscallbackdata.sharedstringsfile && getrelscallbackdata.sharedstringsfile[0]) {
+    sharedstrings = sharedstringlist_create();
+    struct shared_strings_callback_data sharedstringsdata;
+    shared_strings_callback_data_initialize(&sharedstringsdata, sharedstrings);
+    if (expat_process_zip_file(handle->zip, getrelscallbackdata.sharedstringsfile, shared_strings_callback_find_sharedstringtable_start, NULL, NULL, &sharedstringsdata, &sharedstringsdata.xmlparser) != 0) {
+      sharedstringlist_destroy(sharedstrings);
+      sharedstrings = NULL;
+    }
+    shared_strings_callback_data_cleanup(&sharedstringsdata);
+  }
+
+  //process styles (only on first call)
+  if (!handle->styles && !handle->numfmts) {
+    get_styles(handle, getrelscallbackdata.stylesfile);
+  }
+
+  //process sheet with typed callback
+  {
+    struct data_sheet_callback_data processcallbackdata;
+    data_sheet_callback_data_initialize(&processcallbackdata, handle, sharedstrings, flags, NULL, row_callback, callbackdata);
+    processcallbackdata.sheet_cell_typed_callback = cell_callback;
+    expat_process_zip_file(handle->zip, getrelscallbackdata.sheetfile, data_sheet_expat_callback_find_worksheet_start, NULL, NULL, &processcallbackdata, &processcallbackdata.xmlparser);
+    data_sheet_callback_data_cleanup(&processcallbackdata);
+  }
+
+  //clean up
+  free(getrelscallbackdata.basepath);
+  free(getrelscallbackdata.sheetrelid);
+  free(getrelscallbackdata.sheetfile);
+  free(getrelscallbackdata.sharedstringsfile);
+  free(getrelscallbackdata.stylesfile);
+  return result;
+}
+
+DLL_EXPORT_XLSXIO void xlsxioread_debug_internals (xlsxioreader handle)
+{
+  size_t i;
+  if (!handle) {
+    printf("xlsxioread_debug_internals: NULL handle\n");
+    return;
+  }
+  //ensure styles are loaded
+  if (!handle->styles && !handle->numfmts) {
+    struct main_sheet_get_rels_callback_data getrelscallbackdata = {
+      .sheetname = NULL,
+      .basepath = NULL,
+      .sheetrelid = NULL,
+      .sheetfile = NULL,
+      .sharedstringsfile = NULL,
+      .stylesfile = NULL
+    };
+    iterate_files_by_contenttype(handle->zip, xlsx_content_type, main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
+    if (!getrelscallbackdata.sheetrelid)
+      iterate_files_by_contenttype(handle->zip, xlsm_content_type, main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
+    if (!getrelscallbackdata.sheetrelid)
+      iterate_files_by_contenttype(handle->zip, xltx_content_type, main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
+    if (!getrelscallbackdata.sheetrelid)
+      iterate_files_by_contenttype(handle->zip, xltm_content_type, main_sheet_get_sheetfile_callback, &getrelscallbackdata, NULL);
+    get_styles(handle, getrelscallbackdata.stylesfile);
+    free(getrelscallbackdata.basepath);
+    free(getrelscallbackdata.sheetrelid);
+    free(getrelscallbackdata.sheetfile);
+    free(getrelscallbackdata.sharedstringsfile);
+    free(getrelscallbackdata.stylesfile);
+  }
+  printf("=== Number Formats (%zu) ===\n", handle->numfmts_count);
+  for (i = 0; i < handle->numfmts_count; i++) {
+    printf("  numFmtId=%d is_date=%d fmt=%s\n",
+           handle->numfmts[i].numFmtId,
+           handle->numfmts[i].is_date,
+           handle->numfmts[i].fmt ? handle->numfmts[i].fmt : "(null)");
+  }
+  printf("=== Cell Styles (%zu) ===\n", handle->styles_count);
+  for (i = 0; i < handle->styles_count; i++) {
+    printf("  [%zu] numFmtId=%d", i, handle->styles[i].numFmtId);
+    if (handle->styles[i].numfmt) {
+      printf(" -> is_date=%d fmt=%s",
+             handle->styles[i].numfmt->is_date,
+             handle->styles[i].numfmt->fmt ? handle->styles[i].numfmt->fmt : "(null)");
+    }
+    printf("\n");
+  }
 }

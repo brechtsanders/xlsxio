@@ -152,8 +152,7 @@ int main (int argc, char* argv[])
       if ((filename = (char*)malloc(strlen(argv[i]) + 6)) == NULL ){
         fprintf(stderr, "Memory allocation error\n");
       } else {
-        strcpy(filename, argv[i]);
-        strcat(filename, ".xlsx");
+        snprintf(filename, strlen(argv[i]) + 6, "%s.xlsx", argv[i]);
       }
     }
     if (src && filename && sheetname) {

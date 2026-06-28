@@ -684,6 +684,17 @@ void iterate_files_by_contenttype_expat_callback_element_start (void* callbackda
     }
   } else if (XML_Char_icmp_ins(name, X("Default")) == 0) {
     //by extension
+    // NOTE: expat_process_zip_file has already opened [Content_Types].xml via
+    // unzOpenCurrentFile and is streaming it when this callback runs. On the
+    // minizip backend the code below traverses the zip central directory
+    // (unzGoToFirstFile / unzGetCurrentFileInfo / unzGoToNextFile) on the same
+    // unzFile handle, which corrupts minizip's single state machine and crashes
+    // in unzGetCurrentFileInfo (issue #28). Legitimate xlsx files always declare
+    // the main/sheet content type via <Override>, never <Default>, so this branch
+    // never matches for the content types xlsxio looks up. Skip it on the minizip
+    // backend at compile time; the libzip backend (index-based zip_get_name) is
+    // unaffected and keeps its original logic.
+#ifndef USE_MINIZIP
     const XML_Char* contenttype;
     const XML_Char* extension;
     if ((contenttype = get_expat_attr_by_name(atts, X("ContentType"))) != NULL && XML_Char_icmp(contenttype, data->contenttype) == 0) {
@@ -731,6 +742,7 @@ unzGetGlobalInfo(data->zip, &zipglobalinfo);
 #endif
       }
     }
+#endif /* !USE_MINIZIP: skip <Default> branch to avoid minizip state clash */
   }
 }
 

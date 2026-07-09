@@ -1051,6 +1051,11 @@ DLL_EXPORT_XLSXIO void xlsxiowrite_add_cell_float (xlsxiowriter handle, double v
   write_cell_data(handle, NULL, "<c" STYLE_ATTR(STYLE_GENERAL) COLNRTAG "><v>", "</v></c>", "%.32G", value);
 }
 
+DLL_EXPORT_XLSXIO void xlsxiowrite_add_cell_boolean (xlsxiowriter handle, int value)
+{
+  write_cell_data(handle, NULL, "<c t=\"b\"" STYLE_ATTR(STYLE_GENERAL) COLNRTAG "><v>", "</v></c>", "%d", (value ? 1 : 0));
+}
+
 DLL_EXPORT_XLSXIO void xlsxiowrite_add_cell_datetime (xlsxiowriter handle, time_t value)
 {
   double timestamp = ((double)(value) + .499) / 86400 + 25569; //conversion from Unix to Excel timestamp

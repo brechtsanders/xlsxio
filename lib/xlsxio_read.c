@@ -8,12 +8,8 @@
 #include <string.h>
 #include <expat.h>
 
-#if defined(USE_MINIZIP) || defined(USE_MINIZIP_NG)
-#  ifdef USE_MINIZIP_NG
-#    include <minizip-ng/unzip.h>
-#  else
-#    include <minizip/unzip.h>
-#  endif
+#if defined(USE_MINIZIP)
+#  include <minizip/unzip.h>
 #  define ZIPFILETYPE unzFile
 #  define ZIPFILEENTRYTYPE unzFile
 #  if defined(_MSC_VER)

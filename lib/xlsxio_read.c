@@ -520,6 +520,8 @@ uLong ZCALLBACK minizip_io_memory_read_file_fn (voidpf opaque, voidpf stream, vo
   uLong len;
   if (!opaque || !stream || !buf || size == 0)
     return 0;
+  if (((struct minizip_io_memory_handle*)stream)->pos >= ((struct minizip_io_memory_data*)opaque)->datalen)
+    return 0;
   if (((struct minizip_io_memory_handle*)stream)->pos + size <= ((struct minizip_io_memory_data*)opaque)->datalen)
     len = size;
   else
@@ -592,7 +594,6 @@ long ZCALLBACK minizip_io_memory_seek_file_fn (voidpf opaque, voidpf stream, uLo
         else
           ((struct minizip_io_memory_handle*)stream)->pos = offset;
       }
-      ((struct minizip_io_memory_handle*)stream)->pos = offset;
       break;
     default :
       return -1;

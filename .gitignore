@@ -33,3 +33,4 @@ ODS/
 issues/
 community/
 build/*.csv
+build/*.depend
